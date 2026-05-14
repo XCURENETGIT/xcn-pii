@@ -1,0 +1,192 @@
+name: xcn-pii
+
+services:
+  api:
+    profiles: ["http"]
+    image: ${PII_IMAGE_REPO:-xcn-pii}/api:${PII_IMAGE_TAG:-latest}
+    build:
+      context: .
+      dockerfile: Dockerfile.http
+      args:
+        INSTALL_SEMANTIC: ${HTTP_INSTALL_SEMANTIC:-true}
+        TORCH_INSTALL_PACKAGE: ${TORCH_INSTALL_PACKAGE:-}
+        TORCH_EXTRA_INDEX_URL: ${TORCH_EXTRA_INDEX_URL:-}
+    container_name: xcn-pii-api
+    command: ["sh", "-c", "uvicorn app.main:app --host 0.0.0.0 --port 8000 --workers ${UVICORN_WORKERS:-1}"]
+    ports:
+      - "8005:8000"
+    environment:
+      - PII_MIN_SCORE=0.6
+      - PII_MAX_SPANS=200
+      - UVICORN_WORKERS=1
+      - PII_HTTP_MAX_UPLOAD_MB=${PII_HTTP_MAX_UPLOAD_MB:-100}
+      - PII_SPLIT_ENABLED=true
+      - PII_SPLIT_TEXT_LEN=50000
+      - PII_SPLIT_CHUNK_CHARS=50000
+      - PII_SPLIT_OVERLAP_CHARS=2000
+      - PII_SPLIT_MAX_WORKERS=1
+      - PII_SPLIT_MAX_RESULTS_PER_TYPE=200
+      - PII_SPLIT_MAX_CHUNKS=64
+      - PII_FASTPATH_ENABLED=true
+      - PII_FASTPATH_TEXT_LEN=50000
+      - PII_FASTPATH_MAX_RESULTS_PER_TYPE=200
+      - PII_FASTPATH_TARGET_KEYS=SN,SSN,DN,PN,MN,EML,CN
+      - PII_HS_SN_ENABLED=true
+      - PII_HS_DN_ENABLED=true
+      - PII_HS_AN_ENABLED=false
+      - PII_HS_SSN_ENABLED=true
+      - PII_HS_PN_ENABLED=true
+      - PII_HS_MN_ENABLED=true
+      - PII_HS_EML_ENABLED=true
+      - PII_HS_CN_ENABLED=true
+      - PII_HS_COMBINED_ENABLED=${PII_HS_COMBINED_ENABLED:-true}
+      - PII_CONTEXT_EMBED_MAX_CHARS=${PII_CONTEXT_EMBED_MAX_CHARS:-256}
+      - PII_TRACE_DETECT=false
+      - PII_TRACE_SLOW_MS=800
+      - PII_STAGE_TIMING_ENABLED=true
+      - PII_STAGE_LOG_ENABLED=false
+      - PII_STAGE_LOG_ITEMS=false
+      - PII_STAGE_LOG_ITEM_LIMIT=100
+      - PII_STAGE_LOG_TEXT_LIMIT=240
+      - PII_FILE_LOG_ENABLED=true
+      - PII_LOG_DIR=/logs
+      - PII_LOG_LEVEL=INFO
+      - PII_LOG_BACKUP_DAYS=30
+      - HF_HOME=/data/hf
+      - TRANSFORMERS_CACHE=/data/hf/transformers
+      - SENTENCE_TRANSFORMERS_HOME=/data/hf/sentence_transformers
+      - PII_EMBED_DEVICE=${PII_EMBED_DEVICE:-auto}
+      - PII_GUARDRAIL_ENABLED=${PII_GUARDRAIL_ENABLED:-false}
+      - PII_GUARDRAIL_PROVIDER=${PII_GUARDRAIL_PROVIDER:-sguard}
+      - PII_GUARDRAIL_DEVICE=${PII_GUARDRAIL_DEVICE:-cuda}
+      - PII_GUARDRAIL_MAX_CHARS=${PII_GUARDRAIL_MAX_CHARS:-4000}
+      - PII_GUARDRAIL_FAIL_OPEN=${PII_GUARDRAIL_FAIL_OPEN:-true}
+      - PII_SGUARD_CONTENT_ENABLED=${PII_SGUARD_CONTENT_ENABLED:-true}
+      - PII_SGUARD_CONTENT_MODEL=${PII_SGUARD_CONTENT_MODEL:-SamsungSDS-Research/SGuard-ContentFilter-2B-v1}
+      - PII_SGUARD_CONTENT_THRESHOLDS=${PII_SGUARD_CONTENT_THRESHOLDS:-0.5,0.5,0.5,0.5,0.5}
+      - PII_SGUARD_JAILBREAK_ENABLED=${PII_SGUARD_JAILBREAK_ENABLED:-true}
+      - PII_SGUARD_JAILBREAK_MODEL=${PII_SGUARD_JAILBREAK_MODEL:-SamsungSDS-Research/SGuard-JailbreakFilter-2B-v1}
+      - PII_SGUARD_JAILBREAK_THRESHOLD=${PII_SGUARD_JAILBREAK_THRESHOLD:-0.6}
+      - NVIDIA_VISIBLE_DEVICES=${NVIDIA_VISIBLE_DEVICES:-all}
+      - NVIDIA_DRIVER_CAPABILITIES=${NVIDIA_DRIVER_CAPABILITIES:-compute,utility}
+    volumes:
+      - hf_cache:/data/hf
+      - ./logs:/logs
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: ${PII_GPU_COUNT:-all}
+              capabilities: [gpu]
+    restart: unless-stopped
+  api-grpc:
+    profiles: ["grpc"]
+    image: ${PII_IMAGE_REPO:-xcn-pii}/api-grpc:${PII_IMAGE_TAG:-latest}
+    build:
+      context: .
+      dockerfile: Dockerfile.grpc
+      args:
+        INSTALL_SEMANTIC: ${GRPC_INSTALL_SEMANTIC:-true}
+        TORCH_INSTALL_PACKAGE: ${TORCH_INSTALL_PACKAGE:-}
+        TORCH_EXTRA_INDEX_URL: ${TORCH_EXTRA_INDEX_URL:-}
+    command: ["python", "-m", "app.grpc_server"]
+    expose:
+      - "50051"
+    environment:
+      - PII_MIN_SCORE=0.6
+      - PII_MAX_SPANS=200
+      - PII_GRPC_HOST=0.0.0.0
+      - PII_GRPC_PORT=50051
+      - PII_GRPC_MAX_WORKERS=${PII_GRPC_MAX_WORKERS:-6}
+      - PII_GRPC_MAX_CONCURRENT_STREAMS=${PII_GRPC_MAX_CONCURRENT_STREAMS:-1024}
+      - PII_GRPC_KEEPALIVE_TIME_MS=${PII_GRPC_KEEPALIVE_TIME_MS:-30000}
+      - PII_GRPC_KEEPALIVE_TIMEOUT_MS=${PII_GRPC_KEEPALIVE_TIMEOUT_MS:-10000}
+      - PII_GRPC_MAX_CONCURRENT_RPCS=${PII_GRPC_MAX_CONCURRENT_RPCS:-0}
+      - PII_GRPC_SO_REUSEPORT=${PII_GRPC_SO_REUSEPORT:-true}
+      - PII_SPLIT_ENABLED=true
+      - PII_SPLIT_TEXT_LEN=50000
+      - PII_SPLIT_CHUNK_CHARS=50000
+      - PII_SPLIT_OVERLAP_CHARS=2000
+      - PII_SPLIT_MAX_WORKERS=1
+      - PII_SPLIT_MAX_RESULTS_PER_TYPE=200
+      - PII_SPLIT_MAX_CHUNKS=64
+      - PII_FASTPATH_ENABLED=true
+      - PII_FASTPATH_TEXT_LEN=50000
+      - PII_FASTPATH_MAX_RESULTS_PER_TYPE=200
+      - PII_FASTPATH_TARGET_KEYS=SN,SSN,DN,PN,MN,EML,CN
+      - PII_HS_SN_ENABLED=true
+      - PII_HS_DN_ENABLED=true
+      - PII_HS_AN_ENABLED=false
+      - PII_HS_SSN_ENABLED=true
+      - PII_HS_PN_ENABLED=true
+      - PII_HS_MN_ENABLED=true
+      - PII_HS_EML_ENABLED=true
+      - PII_HS_CN_ENABLED=true
+      - PII_HS_IP_ENABLED=false
+      - PII_HS_COMBINED_ENABLED=${PII_HS_COMBINED_ENABLED:-true}
+      - PII_CONTEXT_EMBED_MAX_CHARS=${PII_CONTEXT_EMBED_MAX_CHARS:-256}
+      - PII_TRACE_DETECT=false
+      - PII_TRACE_SLOW_MS=800
+      - PII_STAGE_TIMING_ENABLED=true
+      - PII_STAGE_LOG_ENABLED=false
+      - PII_STAGE_LOG_ITEMS=false
+      - PII_STAGE_LOG_ITEM_LIMIT=100
+      - PII_STAGE_LOG_TEXT_LIMIT=240
+      - PII_FILE_LOG_ENABLED=true
+      - PII_LOG_DIR=/logs
+      - PII_LOG_LEVEL=INFO
+      - PII_LOG_BACKUP_DAYS=30
+      - HF_HOME=/data/hf
+      - TRANSFORMERS_CACHE=/data/hf/transformers
+      - SENTENCE_TRANSFORMERS_HOME=/data/hf/sentence_transformers
+      - PII_EMBED_DEVICE=${PII_EMBED_DEVICE:-auto}
+      - PII_GUARDRAIL_ENABLED=${PII_GUARDRAIL_ENABLED:-false}
+      - PII_GUARDRAIL_PROVIDER=${PII_GUARDRAIL_PROVIDER:-sguard}
+      - PII_GUARDRAIL_DEVICE=${PII_GUARDRAIL_DEVICE:-cuda}
+      - PII_GUARDRAIL_MAX_CHARS=${PII_GUARDRAIL_MAX_CHARS:-4000}
+      - PII_GUARDRAIL_FAIL_OPEN=${PII_GUARDRAIL_FAIL_OPEN:-true}
+      - PII_SGUARD_CONTENT_ENABLED=${PII_SGUARD_CONTENT_ENABLED:-true}
+      - PII_SGUARD_CONTENT_MODEL=${PII_SGUARD_CONTENT_MODEL:-SamsungSDS-Research/SGuard-ContentFilter-2B-v1}
+      - PII_SGUARD_CONTENT_THRESHOLDS=${PII_SGUARD_CONTENT_THRESHOLDS:-0.5,0.5,0.5,0.5,0.5}
+      - PII_SGUARD_JAILBREAK_ENABLED=${PII_SGUARD_JAILBREAK_ENABLED:-true}
+      - PII_SGUARD_JAILBREAK_MODEL=${PII_SGUARD_JAILBREAK_MODEL:-SamsungSDS-Research/SGuard-JailbreakFilter-2B-v1}
+      - PII_SGUARD_JAILBREAK_THRESHOLD=${PII_SGUARD_JAILBREAK_THRESHOLD:-0.6}
+      - NVIDIA_VISIBLE_DEVICES=${NVIDIA_VISIBLE_DEVICES:-all}
+      - NVIDIA_DRIVER_CAPABILITIES=${NVIDIA_DRIVER_CAPABILITIES:-compute,utility}
+    volumes:
+      - hf_cache:/data/hf
+      - ./logs:/logs
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: ${PII_GPU_COUNT:-all}
+              capabilities: [gpu]
+    restart: unless-stopped
+  api-grpc-lb:
+    profiles: ["grpc"]
+    image: haproxy:3.1-alpine
+    container_name: xcn-pii-grpc-lb
+    depends_on:
+      - api-grpc
+    ports:
+      - "50055:50051"
+    volumes:
+      - ./infra/haproxy/grpc-lb.cfg:/usr/local/etc/haproxy/haproxy.cfg:ro
+    restart: unless-stopped
+  api-grpc-envoy:
+    profiles: ["grpc"]
+    image: envoyproxy/envoy:v1.33.0
+    container_name: xcn-pii-grpc-envoy
+    depends_on:
+      - api-grpc
+    ports:
+      - "50055:50051"
+    volumes:
+      - ./infra/envoy/grpc-lb.yaml:/etc/envoy/envoy.yaml:ro
+    command: ["envoy", "-c", "/etc/envoy/envoy.yaml", "--log-level", "warning"]
+    restart: unless-stopped
+volumes:
+  hf_cache:

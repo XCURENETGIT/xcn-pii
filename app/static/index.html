@@ -1,0 +1,118 @@
+﻿<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>PII 입력값 검출</title>
+  <link rel="stylesheet" href="/static/style.css" />
+</head>
+<body>
+  <div class="container">
+    <h1>PII 입력값 검출 (SN/SSN/DN/PN/MN/CN/EML)</h1>
+
+    <div class="tabs">
+      <button class="tab active" id="tab-detect" type="button">PII 검출</button>
+      <button class="tab" id="tab-grpc" type="button">gRPC 테스트</button>
+      <button class="tab" id="tab-rrn" type="button">주민등록번호 유효성 체크</button>
+      <span class="spacer"></span>
+      <a href="/pii/selftest" target="_blank" rel="noreferrer">selftest</a>
+    </div>
+
+    <section id="page-detect">
+      <div class="toolbar">
+        <label>max/type
+          <input id="maxSpans" type="number" value="200" min="1" max="5000"/>
+        </label>
+        <button id="btnDetect" type="button">검출</button>
+      </div>
+
+      <textarea id="text" placeholder="여기에 텍스트를 붙여넣으세요."></textarea>
+
+      <div id="timing" class="timing" style="display:none;"></div>
+
+      <div id="out"></div>
+    </section>
+
+    <section id="page-grpc" style="display:none;">
+      <div class="card">
+        <div class="toolbar grpcToolbar">
+          <label class="fieldWide">대상 주소
+            <input id="grpcTarget" class="textInput" type="text" placeholder="예: api-grpc:50051 또는 10.100.40.52:50055" />
+          </label>
+          <label>메서드
+            <select id="grpcMethod" class="textInput selectInput">
+              <option value="Health">Health</option>
+              <option value="Detect">Detect</option>
+            </select>
+          </label>
+          <label>timeout(sec)
+            <input id="grpcTimeout" type="number" value="10" min="1" max="60" step="0.5" />
+          </label>
+          <label class="checkLabel">
+            <input id="grpcUseTls" type="checkbox" />
+            TLS 사용
+          </label>
+          <button id="btnGrpcRun" type="button">gRPC 호출</button>
+        </div>
+
+        <div class="hint">
+          - 브라우저가 직접 gRPC를 호출하는 것이 아니라, 현재 API 서버가 중계 호출합니다.<br/>
+          - `Health`는 연결/프로토콜 확인용, `Detect`는 실제 payload 직렬화 확인용입니다.
+        </div>
+
+        <div id="grpcDetectFields" class="grpcDetectFields">
+          <div class="toolbar">
+            <label>max/type
+              <input id="grpcMaxSpans" type="number" value="200" min="1" max="5000" />
+            </label>
+            <label class="fieldWide">ruleset
+              <input id="grpcRuleset" class="textInput" type="text" placeholder="기본값 사용 시 비워두세요." />
+            </label>
+          </div>
+          <textarea id="grpcText" placeholder="gRPC Detect 요청에 넣을 텍스트를 입력하세요."></textarea>
+        </div>
+
+        <div id="grpcTiming" class="timing" style="display:none;"></div>
+        <div id="grpcOut"></div>
+      </div>
+    </section>
+
+    <section id="page-rrn" style="display:none;">
+      <div class="card">
+        <div class="toolbar" style="margin-bottom: 0;">
+          <label style="flex:1; min-width: 260px;">
+            주민등록번호
+            <input id="rrnInput" class="textInput" type="text"
+                   placeholder="예: 900101-1234567 또는 9001011234567" />
+          </label>
+          <button id="btnRrnCheck" type="button">유효성 체크</button>
+          <button id="btnRrnClear" type="button" class="btnLight">초기화</button>
+        </div>
+
+        <div class="hint">
+          - 체크섬(13번째 자리) 기반으로 <b>유효 여부</b>를 판단합니다.<br/>
+          - 테스트/더미 번호는 대부분 <b>invalid</b>가 나올 수 있습니다.
+        </div>
+
+        <div id="rrnResult" class="result" style="display:none;"></div>
+
+        <hr class="hr"/>
+
+        <h2 class="subTitle">텍스트에서 SN 추출 후 일괄 검증</h2>
+        <div class="hint">아래 텍스트에서 <b>YYMMDD-XXXXXXX</b> 형태를 찾아 체크섬을 계산합니다.</div>
+
+        <textarea id="rrnText" class="miniText"
+                  placeholder="예: 주민등록번호: 900101-1234567 / 801231-2345678 ..."></textarea>
+
+        <div class="toolbar" style="margin-top: 10px;">
+          <button id="btnRrnExtract" type="button">SN 추출 + 검증</button>
+        </div>
+
+        <div id="rrnBatchResult" class="result" style="display:none;"></div>
+      </div>
+    </section>
+  </div>
+
+  <script src="/static/app.js?v=20260424-1"></script>
+</body>
+</html>

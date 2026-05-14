@@ -1,0 +1,28 @@
+# CN detector configuration (credit/debit card number).
+
+enabled: true
+
+patterns:
+  - name: card_16_grouped
+    expr: '(?:\d{4}[-\s]?){3}\d{4}'
+    verify_regex: '(?<!\d)(?:\d{4}[-\s]?){3}\d{4}(?!\d)'
+    regex: '(?<!\d)(?:\d{4}[-\s]?){3}\d{4}(?!\d)'
+    flags:
+      utf8: false
+      ucp: false
+  - name: card_15_amex
+    expr: '\d{4}[-\s]?\d{6}[-\s]?\d{5}'
+    verify_regex: '(?<!\d)\d{4}[-\s]?\d{6}[-\s]?\d{5}(?!\d)'
+    regex: '(?<!\d)\d{4}[-\s]?\d{6}[-\s]?\d{5}(?!\d)'
+    flags:
+      utf8: false
+      ucp: false
+  - name: card_14_diners
+    expr: '\d{4}[-\s]?\d{6}[-\s]?\d{4}'
+    verify_regex: '(?<!\d)\d{4}[-\s]?\d{6}[-\s]?\d{4}(?!\d)'
+    regex: '(?<!\d)\d{4}[-\s]?\d{6}[-\s]?\d{4}(?!\d)'
+    flags:
+      utf8: false
+      ucp: false
+
+max_match_len: 32

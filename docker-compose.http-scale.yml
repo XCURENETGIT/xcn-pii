@@ -1,0 +1,6 @@
+services:
+  api:
+    container_name: !reset null
+    ports: !reset []
+    expose:
+      - "8000"
