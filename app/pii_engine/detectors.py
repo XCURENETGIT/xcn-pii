@@ -299,8 +299,10 @@ class SNDetector(Detector):
         sn_valid: List[dict] = []
 
         for it in raw:
-            if rrn_checksum_valid(it["matchString"]):
+            checksum_status = rrn_checksum_policy_status(it["matchString"])
+            if checksum_status != "checksum_fail":
                 it["isValid"] = True
+                it["checksum_status"] = checksum_status
                 sn_valid.append(it)
 
         existing_sn = ctx.get("SN") or []
@@ -378,8 +380,10 @@ class SNHSDetector(HSRegexDetector):
         t0_checksum = _timing_now()
         sn_valid: List[dict] = []
         for it in candidates:
-            if rrn_checksum_valid(it["matchString"]):
+            checksum_status = rrn_checksum_policy_status(it["matchString"])
+            if checksum_status != "checksum_fail":
                 it["isValid"] = True
+                it["checksum_status"] = checksum_status
                 sn_valid.append(it)
 
         existing_sn = ctx.get("SN") or []

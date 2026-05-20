@@ -363,9 +363,15 @@ def _trim_an_suffix(match_str: str) -> str:
 # RRN checksum validation
 # ============================================================
 
+RRN_RANDOM_SERIAL_START_DATE = (2020, 10, 5)
+
+
+def _rrn_digits(rrn: str) -> str:
+    return re.sub(r"\D", "", _normalize_digit_text((rrn or "").strip()))
+
 
 def rrn_checksum_valid(rrn: str) -> bool:
-    digits_only = re.sub(r"\D", "", _normalize_digit_text((rrn or "").strip()))
+    digits_only = _rrn_digits(rrn)
     if len(digits_only) != 13:
         return False
 
@@ -380,8 +386,45 @@ def rrn_checksum_valid(rrn: str) -> bool:
     return expected == digits[12]
 
 
+def rrn_birth_date_tuple(rrn: str) -> tuple[int, int, int] | None:
+    digits_only = _rrn_digits(rrn)
+    if len(digits_only) != 13:
+        return None
+
+    front = digits_only[:6]
+    back_first = digits_only[6]
+    if back_first not in {"1", "2", "3", "4", "5", "6", "7", "8"}:
+        return None
+
+    century = 1900 if back_first in {"1", "2", "5", "6"} else 2000
+    yy = int(front[:2])
+    mm = int(front[2:4])
+    dd = int(front[4:6])
+    year = century + yy
+    try:
+        time.strptime(f"{year:04d}{mm:02d}{dd:02d}", "%Y%m%d")
+    except ValueError:
+        return None
+    return year, mm, dd
+
+
+def rrn_uses_random_serial_candidate(rrn: str) -> bool:
+    birth_date = rrn_birth_date_tuple(rrn)
+    if birth_date is None:
+        return False
+    return birth_date >= RRN_RANDOM_SERIAL_START_DATE
+
+
+def rrn_checksum_policy_status(rrn: str) -> str:
+    if rrn_checksum_valid(rrn):
+        return "checksum_pass"
+    if rrn_uses_random_serial_candidate(rrn):
+        return "new_system_checksum_skipped"
+    return "checksum_fail"
+
+
 def rrn_structure_valid(rrn: str) -> bool:
-    digits_only = re.sub(r"\D", "", _normalize_digit_text((rrn or "").strip()))
+    digits_only = _rrn_digits(rrn)
     if len(digits_only) != 13:
         return False
 

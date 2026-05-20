@@ -15,6 +15,7 @@ class MatchItem(BaseModel):
     end: int
     matchString: str
     isValid: Optional[bool] = None  
+    checksum_status: Optional[str] = None
     context_score: Optional[float] = None
     context_score_norm: Optional[float] = None
     context_hybrid_score: Optional[float] = None
