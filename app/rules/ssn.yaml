@@ -11,6 +11,12 @@ patterns:
     # Final bounded verification regex.
     verify_regex: '(?<!\d)(?!(?:000|666|9\d\d)-\d{2}-\d{4})(?:\d{3})-(?!00)\d{2}-(?!0000)\d{4}(?!\d)'
     regex: '(?<!\d)(?!(?:000|666|9\d\d)-\d{2}-\d{4})(?:\d{3})-(?!00)\d{2}-(?!0000)\d{4}(?!\d)'
+  - name: us_ssn_spaced
+    # Space/tab separated SSN. Keep this narrower than \s to avoid spanning lines.
+    expr: '\d{3}[ \t]+\d{2}[ \t]+\d{4}'
+    # Final bounded verification regex.
+    verify_regex: '(?<!\d)(?!(?:000|666|9\d\d)[ \t]+\d{2}[ \t]+\d{4})(?:\d{3})[ \t]+(?!00)\d{2}[ \t]+(?!0000)\d{4}(?!\d)'
+    regex: '(?<!\d)(?!(?:000|666|9\d\d)[ \t]+\d{2}[ \t]+\d{4})(?:\d{3})[ \t]+(?!00)\d{2}[ \t]+(?!0000)\d{4}(?!\d)'
   - name: us_ssn_compact
     # Generic compact expression.
     expr: '\d{9}'

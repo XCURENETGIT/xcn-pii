@@ -65,9 +65,20 @@ context:
       force_pass_scope: snippet
       indicator_phrases:
         - "주민등록번호"
+        - "주민 등록 번호"
+        - "주민등록 번호"
+        - "주민등록증번호"
+        - "주민등록증 번호"
+        - "주민 등록증 번호"
         - "주민등록"
         - "주민번호"
+        - "주민 번호"
         - "주번"
+        - "rrn"
+        - "resident registration number"
+        - "resident number"
+        - "korean resident registration number"
+        - "national identification number"
         - "sn"
       non_pii_phrases:
         - "예시"
@@ -76,37 +87,84 @@ context:
       hybrid:
         name_pii_row_repeat_min_count: 1
         label_patterns:
-          - "(?i)\\bSN\\b|주민\\s*등록\\s*(?:증\\s*)?번호|주민\\s*등록|주민\\s*번호|주번"
+          - "(?i)\\bSN\\b|\\bRRN\\b|resident\\s+(?:registration\\s+)?number|korean\\s+resident\\s+registration\\s+number|national\\s+identification\\s+number|주민\\s*등록\\s*(?:증\\s*)?번호|주민\\s*등록|주민\\s*번호|주번"
     SSN:
       sim_threshold: 0.20
       indicator_phrases:
         - "social security"
         - "social security number"
+        - "social security no"
+        - "social security num"
+        - "social security #"
         - "ssn"
+        - "ssn number"
+        - "ssn no"
+        - "ssn #"
+        - "s.s.n"
+        - "ssa number"
+        - "taxpayer identification number"
+        - "tax identification number"
+        - "tax id"
+        - "tin"
+        - "사회보장번호"
+        - "사회 보장 번호"
+        - "미국 사회보장번호"
+        - "소셜시큐리티"
+        - "소셜 시큐리티"
       non_pii_phrases:
         - "sample ssn"
         - "test ssn"
       hybrid:
         label_patterns:
-          - "(?i)social\\s+security(?:\\s+number)?|\\bSSN\\b"
+          - "(?i)social\\s+security(?:\\s*(?:number|no\\.?|num|#))?|\\bSSN\\b|\\bS\\.S\\.N\\.?\\b|\\bSSA\\s+number\\b|\\btaxpayer\\s+identification\\s+number\\b|\\btax\\s+identification\\s+number\\b|\\btax\\s*id\\b|\\bTIN\\b|사회\\s*보장\\s*번호|미국\\s*사회\\s*보장\\s*번호|소셜\\s*시큐리티"
     DN:
       sim_threshold: 0.58
       indicator_phrases:
         - "운전면허"
+        - "운전 면허"
+        - "운전면허번호"
+        - "운전 면허 번호"
+        - "운전면허증"
+        - "운전 면허증"
+        - "운전면허증번호"
+        - "운전면허증 번호"
         - "면허번호"
+        - "면허 번호"
+        - "면허증번호"
+        - "면허증 번호"
         - "driver license"
         - "drivers license"
+        - "driver's license"
+        - "driver licence"
+        - "drivers licence"
+        - "driver's licence"
+        - "driving license"
+        - "driving licence"
+        - "driver license number"
+        - "driver licence number"
+        - "license number"
+        - "licence number"
+        - "dl number"
+        - "dl no"
         - "dl"
         - "dn"
       hybrid:
         label_patterns:
-          - "(?i)운전면허|면허번호|driver'?s?\\s+license|\\bDL\\b|\\bDN\\b"
+          - "(?i)운전\\s*면허\\s*(?:증\\s*)?(?:번호)?|면허\\s*(?:증\\s*)?번호|driver'?s?\\s+licen[cs]e(?:\\s+number)?|driving\\s+licen[cs]e|licen[cs]e\\s+number|\\bDL\\s*(?:number|no\\.?)?\\b|\\bDN\\b"
     PN:
       sim_threshold: 0.05
       indicator_phrases:
         - "여권번호"
+        - "여권 번호"
+        - "여권 No"
+        - "여권 no"
+        - "여권 #"
         - "여권"
         - "passport"
+        - "passport number"
+        - "passport no"
+        - "passport #"
+        - "passport id"
         - "pn"
       hybrid:
         enabled: true
@@ -115,20 +173,47 @@ context:
         label_weight: 0.45
         digit_weight: 0.1
         label_patterns:
-          - "(?i)여권번호|여권|passport|\\bPN\\b"
+          - "(?i)여권\\s*(?:번호|no\\.?|#)?|passport\\s*(?:number|no\\.?|#|id)?|\\bPN\\b"
     MN:
       sim_threshold: 0.05
       window_sentences: 1
       embed_max_chars: 192
       indicator_phrases:
         - "전화번호"
+        - "전화 번호"
         - "휴대전화"
+        - "휴대전화번호"
+        - "휴대 전화"
+        - "휴대 전화 번호"
+        - "휴대폰"
+        - "휴대폰번호"
+        - "휴대폰 번호"
+        - "핸드폰"
+        - "핸드폰번호"
+        - "핸드폰 번호"
         - "문의전화"
+        - "문의 전화"
         - "연락처"
+        - "연락 번호"
+        - "연락번호"
+        - "연락 전화"
+        - "대표번호"
+        - "대표 번호"
+        - "사무실 전화"
+        - "팩스"
         - "모바일"
         - "전화"
         - "tel"
+        - "telephone"
+        - "phone"
+        - "phone number"
         - "mobile"
+        - "mobile number"
+        - "cell phone"
+        - "cellphone"
+        - "contact number"
+        - "contact phone"
+        - "fax"
         - "mn"
       hybrid:
         enabled: true
@@ -137,18 +222,40 @@ context:
         label_weight: 0.45
         digit_weight: 0.1
         label_patterns:
-          - "(?i)전화번호|휴대전화|문의전화|연락처|모바일|전화|tel|phone|fax|\\bMN\\b"
+          - "(?i)전화\\s*번호|휴대\\s*(?:전화|폰)\\s*(?:번호)?|핸드폰\\s*(?:번호)?|문의\\s*전화|연락\\s*(?:처|번호|전화)|대표\\s*번호|사무실\\s*전화|모바일|전화|팩스|tel(?:ephone)?|phone\\s*(?:number)?|mobile\\s*(?:number)?|cell\\s*phone|cellphone|contact\\s*(?:number|phone)|fax|\\bMN\\b"
     BN:
       sim_threshold: 0.09
       indicator_phrases:
         - "계좌"
         - "계좌번호"
+        - "계좌 번호"
+        - "계좌 no"
+        - "계좌 #"
+        - "은행"
+        - "은행명"
+        - "은행 계좌"
+        - "입금계좌"
+        - "입금 계좌"
+        - "출금계좌"
+        - "출금 계좌"
+        - "환불계좌"
+        - "환불 계좌"
+        - "거래계좌"
+        - "거래 계좌"
         - "카드번호"
         - "bank"
+        - "bank account"
+        - "bank account number"
+        - "account"
+        - "account number"
+        - "acct"
+        - "acct no"
+        - "deposit account"
+        - "refund account"
         - "bn"
       hybrid:
         label_patterns:
-          - "(?i)계좌|계좌번호|카드번호|bank|\\bBN\\b"
+          - "(?i)계좌\\s*(?:번호|no\\.?|#)?|은행(?:명|\\s*계좌)?|입금\\s*계좌|출금\\s*계좌|환불\\s*계좌|거래\\s*계좌|카드번호|bank\\s*(?:account\\s*(?:number)?)?|account\\s*(?:number)?|acct\\s*(?:no\\.?)?|deposit\\s+account|refund\\s+account|\\bBN\\b"
     CN:
       sim_threshold: 0.10
       window_sentences: 1
@@ -156,10 +263,27 @@ context:
       indicator_phrases:
         - "카드"
         - "카드번호"
+        - "카드 번호"
         - "신용카드"
+        - "신용카드번호"
+        - "신용 카드"
+        - "신용 카드 번호"
         - "체크카드"
+        - "체크카드번호"
+        - "체크 카드"
+        - "체크 카드 번호"
+        - "결제카드"
+        - "결제 카드"
+        - "법인카드"
+        - "법인 카드"
         - "credit card"
+        - "credit card number"
         - "debit card"
+        - "debit card number"
+        - "card number"
+        - "card no"
+        - "card #"
+        - "cc number"
         - "cn"
       non_pii_phrases:
         - "예시 카드"
@@ -172,7 +296,7 @@ context:
         label_weight: 0.5
         digit_weight: 0.1
         label_patterns:
-          - "(?i)카드번호|신용카드|체크카드|credit\\s+card|debit\\s+card|\\bCN\\b"
+          - "(?i)카드\\s*(?:번호|no\\.?|#)?|신용\\s*카드\\s*(?:번호)?|체크\\s*카드\\s*(?:번호)?|결제\\s*카드|법인\\s*카드|credit\\s+card\\s*(?:number)?|debit\\s+card\\s*(?:number)?|card\\s*(?:number|no\\.?|#)|cc\\s+number|\\bCN\\b"
     EML:
       sim_threshold: 0.05
       window_sentences: 1
@@ -180,9 +304,23 @@ context:
       repeat_same_match_force_pass_min_count: 2
       indicator_phrases:
         - "이메일"
+        - "이메일주소"
+        - "이메일 주소"
         - "메일"
+        - "메일주소"
+        - "메일 주소"
+        - "전자메일"
+        - "전자 메일"
+        - "전자우편"
+        - "전자 우편"
         - "email"
+        - "email address"
         - "e-mail"
+        - "e-mail address"
+        - "e mail"
+        - "e mail address"
+        - "mail address"
+        - "contact email"
         - "eml"
         - "o메일"
       non_pii_phrases:
@@ -194,4 +332,4 @@ context:
         label_weight: 0.45
         digit_weight: 0.0
         label_patterns:
-          - "(?i)이메일|메일|email|e-mail|o메일|\\bEML\\b"
+          - "(?i)이\\s*메일\\s*(?:주소)?|메일\\s*(?:주소)?|전자\\s*(?:메일|우편)|email\\s*(?:address)?|e-?\\s*mail\\s*(?:address)?|mail\\s+address|contact\\s+email|o메일|\\bEML\\b"
