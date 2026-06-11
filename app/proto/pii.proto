@@ -30,8 +30,6 @@ message MatchItem {
 message PiiData {
   reserved 3, 4, 9, 10, 19 to 40, 43 to 44;
   reserved
-    "an_cnt",
-    "an",
     "sn_invalid_cnt",
     "sn_invalid",
     "sn_ctx_rejected_cnt",
@@ -48,8 +46,6 @@ message PiiData {
     "mn_ctx_rejected",
     "bn_ctx_rejected_cnt",
     "bn_ctx_rejected",
-    "an_ctx_rejected_cnt",
-    "an_ctx_rejected",
     "ip_cnt",
     "ip",
     "eml_ctx_rejected_cnt",
@@ -82,6 +78,12 @@ message PiiData {
 
   int32 cn_cnt = 41;
   repeated MatchItem cn = 42;
+
+  int32 brn_cnt = 45;
+  repeated MatchItem brn = 46;
+
+  int32 an_cnt = 47;
+  repeated MatchItem an = 48;
 }
 
 message PiiMeta {

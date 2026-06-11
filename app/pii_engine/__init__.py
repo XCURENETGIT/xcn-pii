@@ -3,6 +3,7 @@ from .context import ContextualLLMPostFilter, ContextualPostFilter
 from .context_config import _build_context_doc
 from .detectors import (
     ANHSDetector,
+    BRNDetector,
     BNPostFilter,
     DNDetector,
     HSRegexDetector,
@@ -24,6 +25,7 @@ from .regex_builders import (
 __all__ = [
     "ANHSDetector",
     "BNPostFilter",
+    "BRNDetector",
     "ContextualLLMPostFilter",
     "ContextualPostFilter",
     "DNDetector",

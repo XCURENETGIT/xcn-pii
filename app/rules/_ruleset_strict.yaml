@@ -9,7 +9,9 @@ steps:
   - EML
   - cn
   - mn
+  - brn
   - bn
+  - an
   - post_mn
   - post_bn
 # Rule document file mapping used by the engine loader.
@@ -19,7 +21,9 @@ rule_files:
   dn: dn.yaml
   pn: pn.yaml
   mn: mn.yaml
+  brn: brn.yaml
   bn: bn_strict.yaml
+  an: an.yaml
   cn: cn.yaml
   EML: eml.yaml
   context: context.yaml

@@ -34,7 +34,7 @@ class ContextualPostFilter(Detector):
         hybrid_cfg: Dict[str, Any] | None = None,
     ):
         self.enabled = enabled
-        self.target_keys = target_keys or ["SN", "SSN", "DN", "PN", "MN", "BN", "CN", "EML"]
+        self.target_keys = target_keys or ["SN", "SSN", "DN", "PN", "MN", "BRN", "BN", "CN", "EML"]
         self.window_sentences = int(window_sentences)
         self.threshold = int(threshold)
         self.debug = bool(debug)
@@ -134,6 +134,14 @@ class ContextualPostFilter(Detector):
             window = int(type_cfg.get("window_sentences", self.window_sentences))
             force_pass_phrases = [str(x).strip() for x in (type_cfg.get("force_pass_phrases") or []) if str(x).strip()]
             force_pass_scope = str(type_cfg.get("force_pass_scope") or "snippet").strip().lower()
+            foreigner_context_phrases = [
+                str(x).strip()
+                for x in (
+                    type_cfg.get("foreigner_context_phrases")
+                    or ["foreigner", "alien", "foreign resident", "외국인"]
+                )
+                if str(x).strip()
+            ]
 
             hybrid = dict(self.hybrid_cfg) if isinstance(self.hybrid_cfg, dict) else {}
             if isinstance(type_cfg.get("hybrid"), dict):
@@ -250,6 +258,14 @@ class ContextualPostFilter(Detector):
                     it["context_force_pass_phrase"] = force_phrase
                     kept.append(it)
                     continue
+                if key == "SN" and rrn_foreigner_registration_candidate(str(it.get("matchString") or "")):
+                    foreigner_phrase = _find_matching_phrase(snippet, foreigner_context_phrases)
+                    if foreigner_phrase:
+                        it["context_pass"] = True
+                        it["context_accept_by"] = "foreigner_context"
+                        it["context_foreigner_phrase"] = foreigner_phrase
+                        kept.append(it)
+                        continue
                 if idx < len(name_pii_row_pass_by_idx) and name_pii_row_pass_by_idx[idx]:
                     it["context_pass"] = True
                     it["context_accept_by"] = "name_pii_row_repeat"
@@ -427,7 +443,7 @@ class ContextualLLMPostFilter(Detector):
         hybrid_cfg: Dict[str, Any] | None = None,
     ):
         self.enabled = enabled
-        self.target_keys = target_keys or ["SN", "SSN", "DN", "PN", "MN", "BN", "CN", "EML"]
+        self.target_keys = target_keys or ["SN", "SSN", "DN", "PN", "MN", "BRN", "BN", "CN", "EML"]
         self.window_sentences = int(window_sentences)
         self.sim_threshold = float(sim_threshold)
         self.model_name = str(model_name)
@@ -674,6 +690,14 @@ class ContextualLLMPostFilter(Detector):
             sim_threshold = float(type_cfg.get("sim_threshold", self.sim_threshold))
             force_pass_phrases = [str(x).strip() for x in (type_cfg.get("force_pass_phrases") or []) if str(x).strip()]
             force_pass_scope = str(type_cfg.get("force_pass_scope") or "snippet").strip().lower()
+            foreigner_context_phrases = [
+                str(x).strip()
+                for x in (
+                    type_cfg.get("foreigner_context_phrases")
+                    or ["foreigner", "alien", "foreign resident", "외국인"]
+                )
+                if str(x).strip()
+            ]
 
             hybrid = dict(self.hybrid_cfg) if isinstance(self.hybrid_cfg, dict) else {}
             if isinstance(type_cfg.get("hybrid"), dict):
@@ -809,6 +833,14 @@ class ContextualLLMPostFilter(Detector):
                     it["context_force_pass_phrase"] = force_phrase
                     kept.append(it)
                     continue
+                if key == "SN" and rrn_foreigner_registration_candidate(str(it.get("matchString") or "")):
+                    foreigner_phrase = _find_matching_phrase(snippet, foreigner_context_phrases)
+                    if foreigner_phrase:
+                        it["context_pass"] = True
+                        it["context_accept_by"] = "foreigner_context"
+                        it["context_foreigner_phrase"] = foreigner_phrase
+                        kept.append(it)
+                        continue
                 if item_idx < len(name_pii_row_pass_by_idx) and name_pii_row_pass_by_idx[item_idx]:
                     it["context_pass"] = True
                     it["context_accept_by"] = "name_pii_row_repeat"

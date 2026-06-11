@@ -16,6 +16,7 @@ context:
     - SSN
     - DN
     - PN
+    - BRN
     - BN
     - CN
   # Hybrid score options combined with semantic score.
@@ -63,6 +64,11 @@ context:
         - "재직증명서"
         - "기본증명서"
       force_pass_scope: snippet
+      foreigner_context_phrases:
+        - "foreigner"
+        - "foreign resident"
+        - "alien"
+        - "외국인"
       indicator_phrases:
         - "주민등록번호"
         - "주민 등록 번호"
@@ -79,15 +85,53 @@ context:
         - "resident number"
         - "korean resident registration number"
         - "national identification number"
+        - "foreigner registration number"
+        - "foreigner reg no"
+        - "foreigner reg number"
+        - "foreigner registration no"
+        - "alien registration number"
+        - "alien reg no"
+        - "arc number"
+        - "arc no"
+        - "foreign resident number"
+        - "외국인등록번호"
+        - "외국인 등록 번호"
+        - "외국인 등록증 번호"
+        - "외국인등록증번호"
         - "sn"
+        - "foreigner"
       non_pii_phrases:
         - "예시"
         - "샘플"
         - "테스트"
+        - "문서관리번호"
+        - "문서 관리 번호"
+        - "내부 문서관리번호"
+        - "내부 문서 관리 번호"
+        - "내부 관리번호"
+        - "관리번호"
+        - "문서번호"
+        - "문서 번호"
+        - "등록번호"
+        - "등록 번호"
+        - "접수번호"
+        - "접수 번호"
+        - "처리번호"
+        - "처리 번호"
+        - "부서 내부"
+        - "마스킹"
+        - "마스킹 전송"
+        - "치환 전송"
+        - "치환"
+        - "정책"
+        - "전송 정책"
+        - "마스킹 정책"
+        - "비식별"
+        - "익명화"
       hybrid:
         name_pii_row_repeat_min_count: 1
         label_patterns:
-          - "(?i)\\bSN\\b|\\bRRN\\b|resident\\s+(?:registration\\s+)?number|korean\\s+resident\\s+registration\\s+number|national\\s+identification\\s+number|주민\\s*등록\\s*(?:증\\s*)?번호|주민\\s*등록|주민\\s*번호|주번"
+          - "(?i)\\bSN\\b|\\bRRN\\b|resident\\s+(?:registration\\s+)?number|korean\\s+resident\\s+registration\\s+number|national\\s+identification\\s+number|foreigner\\s+(?:registration\\s+)?(?:number|no\\.?|num)|foreigner\\s+reg(?:istration)?\\s*(?:number|no\\.?|num)|alien\\s+(?:registration\\s+)?(?:number|no\\.?|num)|alien\\s+reg(?:istration)?\\s*(?:number|no\\.?|num)|\\bARC\\s*(?:number|no\\.?|num)?\\b|foreign\\s+resident\\s+(?:number|no\\.?|num)|주민\\s*등록\\s*(?:증\\s*)?번호|주민\\s*등록|주민\\s*번호|주번|외국인\\s*등록\\s*(?:증\\s*)?번호|외국인\\s*등록"
     SSN:
       sim_threshold: 0.20
       indicator_phrases:
@@ -223,6 +267,54 @@ context:
         digit_weight: 0.1
         label_patterns:
           - "(?i)전화\\s*번호|휴대\\s*(?:전화|폰)\\s*(?:번호)?|핸드폰\\s*(?:번호)?|문의\\s*전화|연락\\s*(?:처|번호|전화)|대표\\s*번호|사무실\\s*전화|모바일|전화|팩스|tel(?:ephone)?|phone\\s*(?:number)?|mobile\\s*(?:number)?|cell\\s*phone|cellphone|contact\\s*(?:number|phone)|fax|\\bMN\\b"
+    BRN:
+      sim_threshold: 0.05
+      window_sentences: 1
+      embed_max_chars: 160
+      indicator_phrases:
+        - "사업자등록번호"
+        - "사업자 등록 번호"
+        - "사업자번호"
+        - "사업자 번호"
+        - "사업자등록증"
+        - "사업자 등록증"
+        - "주식회사"
+        - "유한회사"
+        - "합명회사"
+        - "합자회사"
+        - "회사명"
+        - "법인명"
+        - "법인"
+        - "업체명"
+        - "업체"
+        - "거래처"
+        - "매입처"
+        - "매출처"
+        - "공급자"
+        - "공급받는자"
+        - "세금계산서"
+        - "전자세금계산서"
+        - "business registration number"
+        - "business registration no"
+        - "business registration"
+        - "tax invoice"
+        - "vendor"
+        - "supplier"
+        - "brn"
+      non_pii_phrases:
+        - "예시 사업자번호"
+        - "샘플 사업자번호"
+        - "테스트 사업자번호"
+        - "sample brn"
+        - "test brn"
+      hybrid:
+        enabled: true
+        accept_threshold: 0.25
+        label_window: 64
+        label_weight: 0.55
+        digit_weight: 0.1
+        label_patterns:
+          - "(?i)사업자\\s*등록\\s*(?:증\\s*)?(?:번호)?|사업자\\s*번호|주식\\s*회사|유한\\s*회사|합명\\s*회사|합자\\s*회사|회사\\s*명|법인\\s*명|법인|업체\\s*명|업체|거래처|매입처|매출처|공급\\s*자|공급\\s*받는\\s*자|전자?\\s*세금\\s*계산서|business\\s+registration\\s*(?:number|no\\.?|num)?|tax\\s+invoice|vendor|supplier|\\bBRN\\b"
     BN:
       sim_threshold: 0.09
       indicator_phrases:

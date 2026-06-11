@@ -64,6 +64,9 @@ def build_pipeline(bundle: RuleBundle) -> List[Detector]:
     mn_hs_supported = _get_hs_supported_pattern_indexes(mn_doc, macros={})
     mn_supplement_regexes = _build_regexes_by_indexes(mn_doc, set(range(len(mn_doc.get("patterns") or []))) - mn_hs_supported, macros={})
 
+    brn_doc = docs.get("brn") or {}
+    brn_regexes = _build_regexes(brn_doc, macros={})
+
     bn_doc = docs.get("bn") or {}
     bn_regexes = _build_regexes(bn_doc, macros={})
     bn_bank_enabled = bool(bn_doc.get("bank_pattern_enabled", True))
@@ -321,6 +324,19 @@ def build_pipeline(bundle: RuleBundle) -> List[Detector]:
             pipeline.append(RegexDetector("BN", bn_regexes, enabled=bool(bn_doc.get("enabled", True)), max_match_len=max_len))
             continue
 
+        if step == "brn":
+            max_len = int(brn_doc.get("max_match_len") or max_len_default)
+            checksum_enabled = bool((brn_doc.get("checksum") or {}).get("enabled", True))
+            pipeline.append(
+                BRNDetector(
+                    regexes=brn_regexes,
+                    enabled=bool(brn_doc.get("enabled", True)),
+                    max_match_len=max_len,
+                    checksum_enabled=checksum_enabled,
+                )
+            )
+            continue
+
         if step == "an":
             max_len = int(an_doc.get("max_match_len") or max_len_default)
             hs_db = _select_hs_db("AN", hs_an_db)
@@ -429,6 +445,7 @@ def build_pipeline(bundle: RuleBundle) -> List[Detector]:
                     digits_len_max=int(digits_len.get("max", 14)),
                     reject_if_phone_like=bool(post.get("reject_if_phone_like", True)),
                     reject_if_rrn_like=bool(post.get("reject_if_rrn_like", True)),
+                    reject_if_brn_like=bool(post.get("reject_if_brn_like", True)),
                     boundary_digit_reject=bool(post.get("boundary_digit_reject", True)),
                     reject_overlap_with=[str(x) for x in (post.get("reject_overlap_with") or [])],
                     phone_like_fullmatch_re=phone_like_fullmatch,
@@ -443,7 +460,7 @@ def build_pipeline(bundle: RuleBundle) -> List[Detector]:
             enabled = bool(ctx_doc.get("enabled", True))
             window = int(ctx_doc.get("window_sentences", 2))
             method = str(ctx_doc.get("method") or "keyword")
-            target_keys = [str(x) for x in (ctx_doc.get("target_keys") or ["SN", "SSN", "DN", "PN", "MN", "BN", "CN", "EML"])]
+            target_keys = [str(x) for x in (ctx_doc.get("target_keys") or ["SN", "SSN", "DN", "PN", "MN", "BRN", "BN", "CN", "EML"])]
             indicator_phrases = ctx_doc.get("indicator_phrases") if isinstance(ctx_doc.get("indicator_phrases"), list) else None
             non_pii_phrases = ctx_doc.get("non_pii_phrases") if isinstance(ctx_doc.get("non_pii_phrases"), list) else None
             if method in ("embed", "semantic"):

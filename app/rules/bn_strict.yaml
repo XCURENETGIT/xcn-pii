@@ -23,10 +23,12 @@ postfilter:
     min: 11
     max: 14
   reject_if_phone_like: true
+  reject_if_brn_like: true
   boundary_digit_reject: true
   reject_overlap_with:
     - SN
     - MN
     - DN
     - PN
+    - BRN
     - EML

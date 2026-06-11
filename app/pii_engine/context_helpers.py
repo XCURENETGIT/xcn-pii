@@ -368,10 +368,88 @@ _NAME_PII_ROW_EXCLUDE_TOKENS = {
     "이메일",
     "메일",
     "주소",
+    "관련",
+    "안내",
+    "안내문",
+    "작성",
+    "작성해줘",
+    "요청",
+    "확인",
+    "전달",
+    "문서",
+    "내용",
+    "사항",
+    "정보",
+    "결과",
+    "대상",
+    "자료",
+    "보고서",
+    "신청서",
+    "우리",
+    "부서",
+    "내부",
+    "정책",
+    "마스킹",
+    "전송",
+    "치환",
+    "형태",
+    "적용",
+    "비식별",
+    "익명화",
+    "관리",
+    "관리번호",
+    "문서번호",
+    "문서관리",
+    "문서관리번호",
+    "내부문서",
+    "룰라",
+    "룰루",
+    "랄라",
+    "띠로리",
+    "부부부부",
 }
 
+_KOREAN_COMMON_SINGLE_SYLLABLE_SURNAMES = set(
+    "김이박최정강조윤장임한오서신권황안송전홍유고문양손배백허남심노하곽성차주우구민류나진지엄채원천방공현"
+)
 
-def _is_name_like_korean_token(token: str) -> bool:
+_KOREAN_EXTENDED_SINGLE_SYLLABLE_SURNAMES = set(
+    "함변염여추도석소선설마길연위표명기반왕금옥육인맹제모탁국어은편용예봉사부가승간견경계관교궁궉난당대동두라매빈상섭순시아애영옹음좌초팽피해호"
+)
+
+_KOREAN_COMPOUND_SURNAMES = {
+    "남궁",
+    "황보",
+    "제갈",
+    "사공",
+    "선우",
+    "서문",
+    "독고",
+    "동방",
+    "어금",
+    "망절",
+    "무본",
+}
+
+_KOREAN_PARTICLE_LIKE_NAME_ENDINGS = {
+    "이",
+    "가",
+    "은",
+    "는",
+    "을",
+    "를",
+    "로",
+    "과",
+    "와",
+    "에",
+    "의",
+}
+
+_NAME_LABEL_HINT_RE = re.compile(
+    r"(?:성\s*명|이\s*름|성함|신청자|고객명|대상자|담당자|수신자|받는\s*사람)\s*[:：]?\s*$"
+)
+
+def _is_name_like_korean_token(token: str, *, allow_extended_surname: bool = False, allow_short_given: bool = False) -> bool:
     t = str(token or "").strip()
     if t.endswith("님") and len(t) >= 3:
         t = t[:-1]
@@ -381,18 +459,44 @@ def _is_name_like_korean_token(token: str) -> bool:
         return False
     if any(x in t for x in ("번호", "전화", "계좌", "카드", "여권", "주소", "정보")):
         return False
+    # Do not treat arbitrary 2-4 syllable Korean words as names. The row
+    # force-pass path is intentionally narrow: common surnames can pass without
+    # an explicit label, while extended/rare surnames require a name label.
+    if len(t) >= 3 and t[:2] in _KOREAN_COMPOUND_SURNAMES:
+        given = t[2:]
+    elif t[0] in _KOREAN_COMMON_SINGLE_SYLLABLE_SURNAMES:
+        given = t[1:]
+    elif allow_extended_surname and t[0] in _KOREAN_EXTENDED_SINGLE_SYLLABLE_SURNAMES:
+        given = t[1:]
+    else:
+        return False
+    if not given or len(given) > 2:
+        return False
+    if len(given) == 1 and not allow_short_given:
+        return False
+    if len(t) >= 3 and t[-1] in _KOREAN_PARTICLE_LIKE_NAME_ENDINGS:
+        return False
     return True
 
 
 def _has_name_like_token_near_span(line: str, rel_start: int, rel_end: int, max_distance: int) -> Tuple[bool, str]:
     if not line:
         return False, ""
-    start = max(0, int(rel_start) - max(0, int(max_distance)))
-    end = min(len(line), int(rel_end) + max(0, int(max_distance)))
+    # For row-pattern force-pass, accept only a name-like token placed before
+    # the PII span. Tokens after the number are often generic instructions
+    # such as "관련", "안내", "작성" and should not force-pass detection.
+    start = max(0, int(rel_start) - min(max(0, int(max_distance)), 12))
+    end = max(start, int(rel_start))
     nearby = line[start:end]
     for match in re.finditer(r"(?<![가-힣])([가-힣]{2,4}님?)(?![가-힣])", nearby):
         token = match.group(0)
-        if _is_name_like_korean_token(token):
+        before = nearby[:match.start()]
+        has_name_label = bool(_NAME_LABEL_HINT_RE.search(before[-24:]))
+        if _is_name_like_korean_token(
+            token,
+            allow_extended_surname=has_name_label,
+            allow_short_given=has_name_label,
+        ):
             return True, token
     return False, ""
 

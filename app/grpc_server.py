@@ -74,7 +74,9 @@ def _build_data(pb2: Any, found: dict) -> Any:
         "DN": ("dn_cnt", "dn"),
         "PN": ("pn_cnt", "pn"),
         "MN": ("mn_cnt", "mn"),
+        "BRN": ("brn_cnt", "brn"),
         "BN": ("bn_cnt", "bn"),
+        "AN": ("an_cnt", "an"),
         "CN": ("cn_cnt", "cn"),
         "EML": ("eml_cnt", "eml"),
     }
@@ -103,7 +105,7 @@ def _log_detect_summary(req_id: str, text: str, max_results_per_type: int, rules
     logger.info(
         "[timing] grpc Detect\n"
         "  req=%s detect_ms=%.1f total_ms=%.1f\n"
-        "  kept: SN=%d SSN=%d DN=%d PN=%d MN=%d BN=%d CN=%d EML=%d",
+        "  kept: SN=%d SSN=%d DN=%d PN=%d MN=%d BRN=%d BN=%d AN=%d CN=%d EML=%d",
         req_id,
         detect_ms,
         total_ms,
@@ -112,7 +114,9 @@ def _log_detect_summary(req_id: str, text: str, max_results_per_type: int, rules
         len(found.get("DN", [])),
         len(found.get("PN", [])),
         len(found.get("MN", [])),
+        len(found.get("BRN", [])),
         len(found.get("BN", [])),
+        len(found.get("AN", [])),
         len(found.get("CN", [])),
         len(found.get("EML", [])),
     )

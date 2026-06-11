@@ -238,9 +238,18 @@ mkdir -p logs
 if [[ -f "model-cache/hf-cache.tar.gz" ]]; then
   echo "Restoring HuggingFace model cache into Docker volume xcn-pii_hf_cache"
   docker volume create xcn-pii_hf_cache >/dev/null
-  CACHE_RESTORE_IMAGE="$(grep -E '^PII_IMAGE_REPO=' .env 2>/dev/null | tail -n 1 | cut -d '=' -f 2- || true)"
+  CACHE_RESTORE_REPO="$(grep -E '^PII_IMAGE_REPO=' .env 2>/dev/null | tail -n 1 | cut -d '=' -f 2- || true)"
   CACHE_RESTORE_TAG="$(grep -E '^PII_IMAGE_TAG=' .env 2>/dev/null | tail -n 1 | cut -d '=' -f 2- || true)"
-  CACHE_RESTORE_IMAGE="${CACHE_RESTORE_IMAGE:-xcn-pii}/api-http-cpu:${CACHE_RESTORE_TAG:-$(tr -d '\r' < VERSION | head -n 1)}"
+  CACHE_RESTORE_REPO="${CACHE_RESTORE_REPO:-xcn-pii}"
+  CACHE_RESTORE_TAG="${CACHE_RESTORE_TAG:-$(tr -d '\r' < VERSION | head -n 1)}"
+  CACHE_RESTORE_IMAGE="${CACHE_RESTORE_REPO}/api-http-cpu:${CACHE_RESTORE_TAG}"
+  if ! docker image inspect "${CACHE_RESTORE_IMAGE}" >/dev/null 2>&1; then
+    CACHE_RESTORE_IMAGE="${CACHE_RESTORE_REPO}/api-grpc-cpu:${CACHE_RESTORE_TAG}"
+  fi
+  if ! docker image inspect "${CACHE_RESTORE_IMAGE}" >/dev/null 2>&1; then
+    echo "cache restore image not found for tag ${CACHE_RESTORE_TAG}: ${CACHE_RESTORE_REPO}/api-http-cpu or ${CACHE_RESTORE_REPO}/api-grpc-cpu" >&2
+    exit 1
+  fi
   docker run --rm \
     -v "xcn-pii_hf_cache:/hf" \
     -v "${PROJECT_ROOT}/model-cache:/cache:ro" \
@@ -255,6 +264,22 @@ fi
 
 ./start.sh
 INSTALL_EOF
+}
+
+validate_generated_install_script() {
+  local target_path="$1"
+  if ! bash -n "${target_path}"; then
+    echo "generated install.sh has a shell syntax error: ${target_path}" >&2
+    exit 1
+  fi
+  if ! grep -q 'api-http-cpu' "${target_path}" || ! grep -q 'api-grpc-cpu' "${target_path}"; then
+    echo "generated install.sh must support both HTTP and gRPC cache restore images" >&2
+    exit 1
+  fi
+  if ! grep -q 'docker image inspect "${CACHE_RESTORE_IMAGE}"' "${target_path}"; then
+    echo "generated install.sh is missing local image inspection before cache restore" >&2
+    exit 1
+  fi
 }
 
 write_start_script() {
@@ -550,6 +575,7 @@ if [[ "${INCLUDE_ENV}" == "true" && -f "${PROJECT_ROOT}/.env" ]]; then
   copy_file "${PROJECT_ROOT}/.env" "${BUNDLE_DIR}/.env.source"
 fi
 write_install_script "${BUNDLE_DIR}/install.sh"
+validate_generated_install_script "${BUNDLE_DIR}/install.sh"
 write_start_script "${BUNDLE_DIR}/start.sh" "${MODE}" "${INCLUDE_HTTPS}" "${HTTPS_ONLY}"
 write_stop_script "${BUNDLE_DIR}/stop.sh" "${MODE}" "${INCLUDE_HTTPS}" "${HTTPS_ONLY}"
 if [[ "${MODE}" == "http-cpu" || "${MODE}" == "all-cpu" ]]; then

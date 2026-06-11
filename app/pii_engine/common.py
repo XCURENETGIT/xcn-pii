@@ -91,9 +91,9 @@ def _log_timing(stage: str, req_id: str | None = None, **fields: Any) -> None:
 
 def _summarize_counts(out: Dict[str, List[dict]]) -> Dict[str, int]:
     keys = [
-        "SN", "SSN", "DN", "PN", "MN", "BN", "CN", "EML",
+        "SN", "SSN", "DN", "PN", "MN", "BRN", "BN", "AN", "CN", "EML",
         "SN_CTX_REJECTED", "SSN_CTX_REJECTED", "DN_CTX_REJECTED",
-        "PN_CTX_REJECTED", "MN_CTX_REJECTED", "BN_CTX_REJECTED", "CN_CTX_REJECTED", "EML_CTX_REJECTED",
+        "PN_CTX_REJECTED", "MN_CTX_REJECTED", "BRN_CTX_REJECTED", "BN_CTX_REJECTED", "AN_CTX_REJECTED", "CN_CTX_REJECTED", "EML_CTX_REJECTED",
     ]
     d: Dict[str, int] = {}
     for k in keys:
@@ -336,6 +336,38 @@ def _finalize(items: List[dict]) -> List[dict]:
     return _dedup_sorted(_select_non_overlapping(items))
 
 
+_KR_SIDO_PREFIX_RE = r"(?:서울|부산|대구|인천|광주|대전|울산|세종|경기|강원|충북|충남|전북|전남|경북|경남|제주)(?:특별시|광역시|특별자치시|특별자치도|도|시)?"
+_KR_ADDR_DETAIL_TOKEN_RE = (
+    r"(?:"
+    r"\d{1,4}(?:동|호|층|실|호실|관|번지)|"
+    r"[A-Za-z]동|"
+    r"[가-힣A-Za-z0-9]{1,20}(?:아파트|빌딩|빌라|오피스텔|상가|타워|센터|회관|관|동)"
+    r")"
+)
+_KR_ROAD_ADDRESS_PREFIX_RE = re.compile(
+    rf"^\s*"
+    rf"(?P<addr>"
+    rf"{_KR_SIDO_PREFIX_RE}\s+"
+    rf"[가-힣A-Za-z0-9]+(?:시|군|구)\s+"
+    rf"[가-힣A-Za-z0-9·.\-]+(?:대로|로|길)\s*"
+    rf"\d{{1,5}}(?:-\d{{1,5}})?"
+    rf"(?:\s+{_KR_ADDR_DETAIL_TOKEN_RE})*"
+    rf")"
+)
+_KR_LOT_ADDRESS_PREFIX_RE = re.compile(
+    rf"^\s*"
+    rf"(?P<addr>"
+    rf"{_KR_SIDO_PREFIX_RE}\s+"
+    rf"[가-힣A-Za-z0-9]+(?:시|군|구)\s+"
+    rf"(?:[가-힣A-Za-z0-9]+(?:시|군|구)\s+)?"
+    rf"[가-힣A-Za-z0-9]+(?:읍|면|동)"
+    rf"(?:\s+[가-힣A-Za-z0-9]+(?:리|동))?\s*"
+    rf"\d{{1,5}}(?:의\d{{1,5}}|-\d{{1,5}})?(?:\s*번지)?"
+    rf"(?:\s+{_KR_ADDR_DETAIL_TOKEN_RE})*"
+    rf")"
+)
+
+
 def _trim_an_suffix(match_str: str) -> str:
     """Trim common non-address suffix labels accidentally captured after AN."""
     s = str(match_str or "")
@@ -356,6 +388,13 @@ def _trim_an_suffix(match_str: str) -> str:
     m = stop_re.search(s)
     cut = m.start() if m and m.start() > 0 else len(s)
     trimmed = s[:cut].rstrip(" ,;:/")
+    # Address regexes intentionally scan a wide window after the street/lot
+    # number to catch detail addresses. Keep only a syntactically address-like
+    # prefix so ordinary explanatory text is not included in the AN match.
+    for addr_re in (_KR_ROAD_ADDRESS_PREFIX_RE, _KR_LOT_ADDRESS_PREFIX_RE):
+        m_addr = addr_re.match(trimmed)
+        if m_addr:
+            return m_addr.group("addr").rstrip(" ,;:/")
     return trimmed
 
 
@@ -447,6 +486,80 @@ def rrn_structure_valid(rrn: str) -> bool:
         return bool(time.strptime(f"{year:04d}{mm:02d}{dd:02d}", "%Y%m%d"))
     except ValueError:
         return False
+
+
+def rrn_candidate_shape(rrn: str) -> bool:
+    digits_only = _rrn_digits(rrn)
+    if len(digits_only) != 13:
+        return False
+    return digits_only[6] in {"1", "2", "3", "4", "5", "6", "7", "8"}
+
+
+def rrn_foreigner_registration_candidate(rrn: str) -> bool:
+    digits_only = _rrn_digits(rrn)
+    if len(digits_only) != 13:
+        return False
+    return digits_only[6] in {"5", "6", "7", "8"}
+
+
+# ============================================================
+# Korean business registration number checksum validation
+# ============================================================
+
+
+def _brn_digits(value: str) -> str:
+    return re.sub(r"\D", "", _normalize_digit_text((value or "").strip()))
+
+
+def brn_checksum_valid(value: str) -> bool:
+    """Validate a Korean business registration number.
+
+    The check digit is calculated from the first 9 digits using weights
+    1,3,7,1,3,7,1,3,5. The 9th weighted product contributes both its units
+    digit and tens digit.
+    """
+    digits_only = _brn_digits(value)
+    if len(digits_only) != 10:
+        return False
+
+    digits = [int(c) for c in digits_only]
+    weights = [1, 3, 7, 1, 3, 7, 1, 3, 5]
+    total = sum(digits[i] * weights[i] for i in range(9))
+    total += (digits[8] * 5) // 10
+    expected = (10 - (total % 10)) % 10
+    return expected == digits[9]
+
+
+def brn_structure_valid(value: str) -> bool:
+    digits_only = _brn_digits(value)
+    if len(digits_only) != 10:
+        return False
+    if digits_only == "0" * 10:
+        return False
+    return brn_checksum_valid(digits_only)
+
+
+def brn_candidate_shape(value: str) -> bool:
+    raw = str(value or "").strip()
+    digits_only = _brn_digits(raw)
+    if len(digits_only) != 10:
+        return False
+    if re.fullmatch(r"\d{3}-\d{2}-\d{5}", raw):
+        return True
+    return bool(re.fullmatch(r"\d{10}", raw))
+
+
+def brn_context_hint(text: str, start: int, end: int, window: int = 40) -> bool:
+    s = max(0, int(start) - int(window))
+    e = min(len(text), int(end) + int(window))
+    snippet = text[s:e].casefold()
+    return bool(
+        re.search(
+            r"사업자\s*등록\s*(?:번호)?|사업자\s*번호|사업자등록증|business\s*registration|brn",
+            snippet,
+            re.IGNORECASE,
+        )
+    )
 
 
 def email_structure_valid(value: str) -> bool:

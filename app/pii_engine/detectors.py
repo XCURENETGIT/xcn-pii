@@ -400,6 +400,44 @@ class SNHSDetector(HSRegexDetector):
         )
 
 
+class BRNDetector(Detector):
+    def __init__(self, regexes: List[Pattern], enabled: bool, max_match_len: int, checksum_enabled: bool):
+        self.regexes = regexes
+        self.enabled = enabled
+        self.max_match_len = max_match_len
+        self.checksum_enabled = checksum_enabled
+
+    def run(self, ctx: DetectContext) -> None:
+        if not self.enabled:
+            ctx.set("BRN", [])
+            return
+
+        t0_scan = _timing_now()
+        raw = _scan_regex_cursor(ctx.text, self.regexes, max_results=ctx.max_results, max_len=self.max_match_len)
+        raw = _finalize(raw)
+        scan_ms = _timing_ms(t0_scan)
+
+        t0_checksum = _timing_now()
+        valid: List[dict] = []
+        for it in raw:
+            if self.checksum_enabled and not brn_structure_valid(it["matchString"]):
+                continue
+            it["isValid"] = True
+            it["checksum_status"] = "checksum_pass" if self.checksum_enabled else "checksum_skipped"
+            valid.append(it)
+
+        existing = ctx.get("BRN") or []
+        ctx.set("BRN", _finalize(existing + valid))
+        _log_timing(
+            "brn.regex",
+            req_id=ctx.request_id,
+            scan_ms=f"{scan_ms:.1f}",
+            checksum_ms=f"{_timing_ms(t0_checksum):.1f}",
+            valid=len(valid),
+            invalid=max(0, len(raw) - len(valid)),
+        )
+
+
 class ANHSDetector(HSRegexDetector):
     """AN detector using Hyperscan candidate scan + AN-specific cleanup."""
 
@@ -528,6 +566,7 @@ class BNPostFilter(Detector):
         digits_len_max: int,
         reject_if_phone_like: bool,
         reject_if_rrn_like: bool,
+        reject_if_brn_like: bool,
         boundary_digit_reject: bool,
         reject_overlap_with: List[str],
         phone_like_fullmatch_re: Pattern,
@@ -537,6 +576,7 @@ class BNPostFilter(Detector):
         self.digits_len_max = digits_len_max
         self.reject_if_phone_like = reject_if_phone_like
         self.reject_if_rrn_like = reject_if_rrn_like
+        self.reject_if_brn_like = reject_if_brn_like
         self.boundary_digit_reject = boundary_digit_reject
         self.reject_overlap_with = reject_overlap_with
         self.phone_like_fullmatch_re = phone_like_fullmatch_re
@@ -574,8 +614,12 @@ class BNPostFilter(Detector):
             # RRN-like rejection is intended for compact or hyphenated resident
             # numbers. Space-separated account formats can be structurally RRN-like
             # after stripping non-digits, so do not reject those here.
-            if self.reject_if_rrn_like and " " not in str(it["matchString"]) and rrn_structure_valid(it["matchString"]):
+            if self.reject_if_rrn_like and " " not in str(it["matchString"]) and rrn_candidate_shape(it["matchString"]):
                 continue
+
+            if self.reject_if_brn_like and brn_candidate_shape(it["matchString"]):
+                if "-" in str(it["matchString"]) or brn_context_hint(text, s, e):
+                    continue
 
             if reject_spans and any(_overlaps(s, e, rs, re_) for rs, re_ in reject_spans):
                 continue

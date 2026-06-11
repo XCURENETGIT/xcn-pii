@@ -17,7 +17,7 @@
 
 ## 2. 현재 탐지 대상
 
-default ruleset 기준으로 실제 pipeline에 포함된 탐지 항목은 다음 8개다.
+default ruleset 기준으로 실제 pipeline에 포함된 탐지 항목은 다음 10개다.
 
 | 키 | 의미 | default 탐지 | strict 탐지 | 문맥 필터 대상 |
 |---|---|---:|---:|---:|
@@ -28,13 +28,14 @@ default ruleset 기준으로 실제 pipeline에 포함된 탐지 항목은 다�
 | `EML` | 이메일 | O | O | X |
 | `CN` | 카드번호 | O | O | O |
 | `MN` | 전화번호/휴대폰번호 | O | O | X |
+| `BRN` | 사업자등록번호 | O | O | X |
 | `BN` | 계좌번호 | O | O | O |
+| `AN` | 주소 | O | O | X |
 
 다음 파일은 존재하지만 현재 ruleset `steps`에 없으므로 기본 탐지 대상이 아니다.
 
 | 키 | 의미 | 비고 |
 |---|---|---|
-| `AN` | 주소 | `app/rules/an.yaml` 존재, ruleset 미포함 |
 | `IP` | IP 주소 | `app/rules/ip.yaml` 존재, ruleset 미포함 |
 
 주의:

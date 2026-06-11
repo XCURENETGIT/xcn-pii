@@ -3,7 +3,10 @@
 import grpc
 import warnings
 
-from . import pii_pb2 as pii__pb2
+try:
+    from . import pii_pb2 as pii__pb2
+except ImportError:
+    import pii_pb2 as pii__pb2
 
 GRPC_GENERATED_VERSION = '1.67.1'
 GRPC_VERSION = grpc.__version__

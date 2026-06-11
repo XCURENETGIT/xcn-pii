@@ -96,6 +96,30 @@ def root():
     return FileResponse("app/static/index.html")
 
 
+@app.get("/pii/version")
+def pii_version():
+    """Return runtime version details shown by the test UI."""
+    rules_dir = os.getenv("PII_RULES_DIR", "app/rules")
+    default_ruleset = os.getenv("PII_RULESET", "default")
+    rulesets = []
+    for name in list_rulesets(rules_dir):
+        try:
+            bundle = load_rules(rules_dir=rules_dir, ruleset_name=name)
+            rulesets.append({
+                "ruleset_name": bundle.ruleset_name,
+                "ruleset_version": bundle.version,
+                "ruleset_updated_at": bundle.updated_at,
+            })
+        except Exception as exc:
+            rulesets.append({"ruleset_name": name, "error": str(exc)})
+    return {
+        "app_version": APP_VERSION,
+        "default_ruleset": default_ruleset,
+        "rules_dir": rules_dir,
+        "rulesets": rulesets,
+    }
+
+
 @app.post("/pii/detect", response_model=DetectPiiResponse, response_model_exclude_none=True)
 def pii_detect(
     req: DetectPiiRequest,
@@ -139,7 +163,7 @@ def pii_detect(
     logger.info(
         "[timing] /pii/detect\n"
         "  req=%s detect_ms=%.1f total_ms=%.1f\n"
-        "  kept: SN=%d SSN=%d DN=%d PN=%d MN=%d BN=%d CN=%d EML=%d",
+        "  kept: SN=%d SSN=%d DN=%d PN=%d MN=%d BRN=%d BN=%d AN=%d CN=%d EML=%d",
         req_id,
         detect_ms,
         total_ms,
@@ -148,7 +172,9 @@ def pii_detect(
         len(found.get("DN", [])),
         len(found.get("PN", [])),
         len(found.get("MN", [])),
+        len(found.get("BRN", [])),
         len(found.get("BN", [])),
+        len(found.get("AN", [])),
         len(found.get("CN", [])),
         len(found.get("EML", [])),
     )
@@ -262,6 +288,8 @@ def pii_selftest():
         "DN=11-22-333333-44 "
         "PN=M12345678 "
         "MN=010-1234-5678 "
+        "BRN=220-81-62517 "
+        "AN=서울특별시 강남구 테헤란로 123 "
         "SSN=123-45-6789 "
         "EML=test.user+aa@company.co.kr "
         "CN=4111-1111-1111-1111"

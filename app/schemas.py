@@ -38,6 +38,10 @@ class PiiData(BaseModel):
     MN: Optional[List[MatchItem]] = None
     BN_CNT: Optional[int] = None
     BN: Optional[List[MatchItem]] = None
+    BRN_CNT: Optional[int] = None
+    BRN: Optional[List[MatchItem]] = None
+    AN_CNT: Optional[int] = None
+    AN: Optional[List[MatchItem]] = None
     CN_CNT: Optional[int] = None
     CN: Optional[List[MatchItem]] = None
     EML_CNT: Optional[int] = None

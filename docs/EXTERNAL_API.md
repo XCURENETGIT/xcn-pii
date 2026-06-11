@@ -14,7 +14,9 @@
   - `DN`
   - `PN`
   - `MN`
+  - `BRN`
   - `BN`
+  - `AN`
   - `CN`
   - `EML`
 

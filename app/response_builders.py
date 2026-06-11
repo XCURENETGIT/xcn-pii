@@ -5,7 +5,7 @@ from app.schemas import DetectPiiResponse, GuardrailResult, MatchItem, PiiData, 
 
 def build_detect_response(found: dict, meta: dict | None, guardrail: dict | None = None) -> DetectPiiResponse:
     data_kwargs = {}
-    for key in ("SN", "SSN", "DN", "PN", "MN", "BN", "CN", "EML"):
+    for key in ("SN", "SSN", "DN", "PN", "MN", "BRN", "BN", "AN", "CN", "EML"):
         values = found.get(key, []) or []
         if not values:
             continue

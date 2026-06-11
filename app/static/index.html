@@ -8,13 +8,14 @@
 </head>
 <body>
   <div class="container">
-    <h1>PII 입력값 검출 (SN/SSN/DN/PN/MN/CN/EML)</h1>
+    <h1>PII 입력값 검출 (SN/SSN/DN/PN/MN/BRN/BN/AN/CN/EML)</h1>
 
     <div class="tabs">
       <button class="tab active" id="tab-detect" type="button">PII 검출</button>
       <button class="tab" id="tab-grpc" type="button">gRPC 테스트</button>
       <button class="tab" id="tab-rrn" type="button">주민등록번호 유효성 체크</button>
       <span class="spacer"></span>
+      <span id="versionBadge" class="versionBadge">version 확인 중...</span>
       <a href="/pii/selftest" target="_blank" rel="noreferrer">selftest</a>
     </div>
 
@@ -113,6 +114,6 @@
     </section>
   </div>
 
-  <script src="/static/app.js?v=20260424-1"></script>
+  <script src="/static/app.js?v=20260611-2"></script>
 </body>
 </html>

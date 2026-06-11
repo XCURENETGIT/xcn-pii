@@ -114,7 +114,7 @@ function flattenToSpansAll(apiData) {
   };
 
   const types = [
-    "SN", "SSN", "DN", "PN", "MN", "BN", "CN", "EML",
+    "SN", "SSN", "DN", "PN", "MN", "BRN", "BN", "AN", "CN", "EML",
     "email", "eml"
   ];
   const spans = [];
@@ -232,6 +232,34 @@ function renderGuardrailSummary(guardrail) {
   `;
 }
 
+function renderTypeCounts(data) {
+  const keys = ["SN", "SSN", "DN", "PN", "MN", "BRN", "BN", "AN", "CN", "EML"];
+  return keys
+    .map((key) => `${key} ${(data?.[key] || []).length}건`)
+    .join(" · ");
+}
+
+async function loadVersionBadge() {
+  const el = document.getElementById("versionBadge");
+  if (!el) return;
+  try {
+    const res = await fetch("/pii/version", { cache: "no-store" });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const payload = await res.json();
+    const appVersion = payload?.app_version || "-";
+    const defaultRuleset = payload?.default_ruleset || "default";
+    const rulesets = Array.isArray(payload?.rulesets) ? payload.rulesets : [];
+    const current = rulesets.find((x) => x?.ruleset_name === defaultRuleset) || rulesets[0] || {};
+    const rulesetVersion = current?.ruleset_version ? ` · rule ${current.ruleset_version}` : "";
+    el.textContent = `app v${appVersion} · ruleset ${defaultRuleset}${rulesetVersion}`;
+    el.title = JSON.stringify(payload, null, 2);
+  } catch (e) {
+    el.textContent = "version 확인 실패";
+    el.title = e?.message || String(e);
+    el.classList.add("bad");
+  }
+}
+
 // =========================================================
 // Tabs
 // =========================================================
@@ -326,11 +354,10 @@ async function detect() {
   const mainRows = renderTableRows(spansAll);
 
   if (outEl) {
-    const emlMain = (data?.EML || data?.email || data?.eml || []).length;
     outEl.innerHTML = `
       <div class="card">
         <div><b>검출 결과:</b> ${spans.length}건 (length=${text.length})</div>
-        <div class="hint">EML ${emlMain}건</div>
+        <div class="hint">${renderTypeCounts(data)}</div>
         ${renderGuardrailSummary(guardrail)}
         <div style="margin-top:10px; white-space:pre-wrap; line-height:1.7;">${highlighted}</div>
         <div class="list">
@@ -585,6 +612,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
   toggleGrpcDetectFields();
   loadGrpcDefaults();
+  loadVersionBadge();
 
   // Auto-run detect once
   detect();
