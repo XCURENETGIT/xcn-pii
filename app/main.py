@@ -4,15 +4,23 @@ import logging
 import os
 import time
 import hashlib
+import json
 import tempfile
 from pathlib import Path
 
-from fastapi import FastAPI, File, Form, Header, HTTPException, UploadFile
+from fastapi import FastAPI, File, Form, Header, HTTPException, Request, UploadFile
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
-from app.schemas import DetectPiiFileResponse, DetectPiiRequest, DetectPiiResponse, GrpcTestRequest
+from app.schemas import (
+    DetectPiiFileResponse,
+    DetectPiiRequest,
+    DetectPiiResponse,
+    DetectionExclusionUploadResponse,
+    GrpcTestRequest,
+)
 from app.pii import detect_all, detect_with_meta
+from app.detection_exclusions import exclusion_status, write_detection_exclusion_file
 from app.pii_engine import preload_models
 from app.rules_loader import list_rulesets, load_rules
 from app.context_debug_api import router as debug_router
@@ -51,6 +59,11 @@ def _env_int(name: str, default: int) -> int:
 
 def _http_max_upload_bytes() -> int:
     mb = _env_int("PII_HTTP_MAX_UPLOAD_MB", 100)
+    return max(1, mb) * 1024 * 1024
+
+
+def _http_max_exclusion_upload_bytes() -> int:
+    mb = _env_int("PII_EXCLUSION_MAX_UPLOAD_MB", 10)
     return max(1, mb) * 1024 * 1024
 
 
@@ -250,6 +263,57 @@ async def pii_detect_file(
         **result.model_dump(),
         filename=file.filename,
         extracted_text_length=len(text),
+    )
+
+
+@app.put("/pii/exclusions", response_model=DetectionExclusionUploadResponse)
+@app.post("/pii/detection-exclusions", response_model=DetectionExclusionUploadResponse, include_in_schema=False)
+async def replace_pii_exclusions(
+    request: Request,
+    file: UploadFile | None = File(default=None),
+):
+    """외부 연동에서 전달한 탐지 예외 JSON 전체를 교체하고 즉시 적용합니다."""
+    max_upload_bytes = _http_max_exclusion_upload_bytes()
+    try:
+        if file is not None:
+            if file.filename and not file.filename.lower().endswith(".json"):
+                raise HTTPException(status_code=400, detail="only .json files are supported")
+            raw = await file.read(max_upload_bytes + 1)
+        else:
+            raw = await request.body()
+
+        if not raw:
+            raise HTTPException(status_code=400, detail="exclusion JSON payload is required")
+        if len(raw) > max_upload_bytes:
+            raise HTTPException(
+                status_code=413,
+                detail=f"File too large (max {max_upload_bytes // 1024 // 1024} MB)",
+            )
+        payload = json.loads(raw.decode("utf-8"))
+        config = write_detection_exclusion_file(payload)
+    except HTTPException:
+        raise
+    except UnicodeDecodeError as exc:
+        raise HTTPException(status_code=400, detail="exclusion JSON must be UTF-8 encoded") from exc
+    except json.JSONDecodeError as exc:
+        raise HTTPException(status_code=400, detail=f"invalid JSON: {exc.msg}") from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    status = exclusion_status()
+    logger.info(
+        "[exclusion] updated path=%s total_values=%d type_counts=%s",
+        status["path"],
+        config.total_values,
+        config.type_counts,
+    )
+    return DetectionExclusionUploadResponse(
+        success=True,
+        status=200,
+        path=status["path"],
+        updated_at=status["updated_at"] or "",
+        total_values=config.total_values,
+        type_counts=config.type_counts,
     )
 
 @app.get("/pii/rulesets")

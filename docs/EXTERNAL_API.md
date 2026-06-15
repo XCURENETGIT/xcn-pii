@@ -212,6 +212,79 @@ Success response example:
 - 서버가 제공하는 룰셋 이름 확인
 - 연동 측에서 `X-PII-RULESET` 또는 gRPC `ruleset` 필드에 넣을 값 조회
 
+### 3. Replace PII Exclusions
+
+- Method: `PUT`
+- Path: `/pii/exclusions`
+- Content-Type:
+  - `application/json`
+  - 또는 `multipart/form-data`의 `file` 필드로 `.json` 파일 업로드
+
+용도:
+
+- 외부 시스템에서 이미 매핑/식별된 값은 PII 탐지 결과에서 제외하도록 예외 목록을 등록/교체한다.
+- 업로드가 성공하면 이후 `/pii/detect`, `/pii/detect/file`, gRPC `Detect` 결과에 즉시 적용된다.
+- 전체 예외 목록을 교체하는 idempotent API이므로 `PUT`을 사용한다.
+
+Supported JSON shapes:
+
+```json
+{
+  "values": ["test@example.com"],
+  "types": {
+    "SN": ["900101-1234567"],
+    "MN": ["010-1234-5678"]
+  },
+  "entries": [
+    {"type": "CN", "value": "4111-1111-1111-1111"}
+  ]
+}
+```
+
+Notes:
+
+- `values`: 모든 PII 타입에 공통 적용되는 예외 값
+- `types`: 타입별 예외 값
+- `entries`: `{ "type": "<PII_TYPE>", "value": "<EXCLUDED_VALUE>" }` 배열
+- 타입 키를 최상위에 직접 둘 수도 있다. 예: `{ "SN": ["900101-1234567"] }`
+- 비교 시 대소문자, 공백, 주요 구분자(`-`, `.`, `_`, `@`, `:`, `/`, `\`) 차이는 정규화된다.
+- 저장 경로는 `PII_DETECTION_EXCLUSION_FILE` 환경변수로 변경할 수 있으며 기본값은 `data/pii_detection_exclusions.json`이다.
+
+Success response example:
+
+```json
+{
+  "success": true,
+  "status": 200,
+  "path": "data/pii_detection_exclusions.json",
+  "updated_at": "2026-06-15T13:20:00+0900",
+  "total_values": 4,
+  "type_counts": {
+    "CN": 1,
+    "MN": 1,
+    "SN": 1
+  }
+}
+```
+
+curl examples:
+
+```bash
+curl -X PUT "http://<host>:8005/pii/exclusions" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "types": {
+      "SN": ["900101-1234567"],
+      "EML": ["test@example.com"]
+    }
+  }'
+```
+
+```bash
+curl -X PUT "http://<host>:8005/pii/exclusions" \
+  -F "file=@pii_detection_exclusions.json;type=application/json"
+```
+
 ## gRPC API
 
 Proto:
@@ -226,6 +299,7 @@ RPC methods:
 
 - `Health(HealthRequest) returns (HealthResponse)`
 - `Detect(DetectRequest) returns (DetectResponse)`
+- `ReplaceExclusions(ReplaceExclusionsRequest) returns (ReplaceExclusionsResponse)`
 
 ### 1. Health
 
@@ -301,6 +375,44 @@ grpcurl -plaintext \
     "max_results_per_type": 100
   }' \
   <host>:50055 xcn.pii.v1.PiiDetector/Detect
+```
+
+### 3. Replace Exclusions
+
+HTTP `PUT /pii/exclusions`와 동일하게 탐지 예외 목록 전체를 교체한다.
+
+Request:
+
+```proto
+message ReplaceExclusionsRequest {
+  string json_payload = 1;
+}
+```
+
+`json_payload`에는 HTTP API에서 사용하는 예외 JSON을 문자열로 넣는다.
+
+Response:
+
+```proto
+message ReplaceExclusionsResponse {
+  bool success = 1;
+  int32 status = 2;
+  string message = 3;
+  string path = 4;
+  string updated_at = 5;
+  int32 total_values = 6;
+  map<string, int32> type_counts = 7;
+}
+```
+
+grpcurl example:
+
+```bash
+grpcurl -plaintext \
+  -d '{
+    "json_payload": "{\"types\":{\"SN\":[\"900101-1234567\"],\"EML\":[\"test@example.com\"]}}"
+  }' \
+  <host>:50055 xcn.pii.v1.PiiDetector/ReplaceExclusions
 ```
 
 ## Result Semantics

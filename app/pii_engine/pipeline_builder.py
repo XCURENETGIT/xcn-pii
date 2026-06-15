@@ -431,6 +431,7 @@ def build_pipeline(bundle: RuleBundle) -> List[Detector]:
                     reject_overlap_with=[str(x) for x in (post.get("reject_overlap_with") or [])],
                     intl_digits_len_min=int(intl_digits_len.get("min", 8)),
                     intl_digits_len_max=int(intl_digits_len.get("max", 15)),
+                    reject_010_1xxx_4digit_middle=bool(post.get("reject_010_1xxx_4digit_middle", True)),
                 )
             )
             continue

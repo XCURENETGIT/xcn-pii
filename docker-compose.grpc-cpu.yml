@@ -78,6 +78,7 @@ services:
       - NVIDIA_DRIVER_CAPABILITIES=
     volumes:
       - hf_cache:/data/hf
+      - ./data:/app/data
       - ./logs:/logs
     restart: unless-stopped
 

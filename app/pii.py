@@ -30,6 +30,7 @@ from typing import Dict, List, Tuple
 from .pii_engine import detect as _detect
 from .pii_engine import detect_with_meta as _detect_with_meta
 from .pii_engine import detect_with_meta_uncached as _detect_with_meta_uncached
+from .detection_exclusions import apply_detection_exclusions
 
 logger = logging.getLogger("pii.detect")
 
@@ -134,7 +135,11 @@ def detect_all(text: str, max_results_per_type: int = 500, *, ruleset: str | Non
     ruleset: Optional[str]
         선택 룰셋. None이면 환경변수 PII_RULESET 사용
     """
-    return _detect(text, max_results_per_type=max_results_per_type, ruleset=ruleset)
+    found = _detect(text, max_results_per_type=max_results_per_type, ruleset=ruleset)
+    filtered, removed = apply_detection_exclusions(found)
+    if removed:
+        logger.info("[exclusion] detect_all removed=%s", removed)
+    return filtered
 
 
 def detect_with_meta(text: str, max_results_per_type: int = 500, *, ruleset: str | None = None):
@@ -169,6 +174,9 @@ def detect_with_meta(text: str, max_results_per_type: int = 500, *, ruleset: str
 
     if (not split_enabled) or (len(src) < split_len):
         found, meta = _detect_with_meta(src, max_results_per_type=max_results_per_type, ruleset=ruleset)
+        found, removed = apply_detection_exclusions(found)
+        if removed:
+            logger.info("[exclusion] detect_with_meta removed=%s", removed)
         if trace:
             dt = (time.perf_counter() - t0_all) * 1000.0
             logger.info(
@@ -188,6 +196,9 @@ def detect_with_meta(text: str, max_results_per_type: int = 500, *, ruleset: str
     if len(ranges) <= 1:
         capped = min(int(max_results_per_type or 500), split_cap)
         found, meta = _detect_with_meta(src, max_results_per_type=capped, ruleset=ruleset)
+        found, removed = apply_detection_exclusions(found)
+        if removed:
+            logger.info("[exclusion] detect_with_meta removed=%s", removed)
         if trace:
             dt = (time.perf_counter() - t0_all) * 1000.0
             logger.info(
@@ -218,6 +229,9 @@ def detect_with_meta(text: str, max_results_per_type: int = 500, *, ruleset: str
         if trace:
             dt = (time.perf_counter() - t0_all) * 1000.0
             logger.info("[trace] req=%s done mode=split_serial ms=%.1f", req_id, dt)
+        merged, removed = apply_detection_exclusions(merged)
+        if removed:
+            logger.info("[exclusion] detect_with_meta split removed=%s", removed)
         return merged, (meta or {})
 
     def _run_one(seg_start: int, seg_end: int):
@@ -241,4 +255,7 @@ def detect_with_meta(text: str, max_results_per_type: int = 500, *, ruleset: str
     if trace:
         dt = (time.perf_counter() - t0_all) * 1000.0
         logger.info("[trace] req=%s done mode=split_parallel ms=%.1f", req_id, dt)
+    merged, removed = apply_detection_exclusions(merged)
+    if removed:
+        logger.info("[exclusion] detect_with_meta split removed=%s", removed)
     return merged, (meta or {})

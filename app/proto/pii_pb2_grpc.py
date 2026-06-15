@@ -42,6 +42,11 @@ class PiiDetectorStub(object):
                 request_serializer=pii__pb2.DetectRequest.SerializeToString,
                 response_deserializer=pii__pb2.DetectResponse.FromString,
                 _registered_method=True)
+        self.ReplaceExclusions = channel.unary_unary(
+                '/xcn.pii.v1.PiiDetector/ReplaceExclusions',
+                request_serializer=pii__pb2.ReplaceExclusionsRequest.SerializeToString,
+                response_deserializer=pii__pb2.ReplaceExclusionsResponse.FromString,
+                _registered_method=True)
         self.Health = channel.unary_unary(
                 '/xcn.pii.v1.PiiDetector/Health',
                 request_serializer=pii__pb2.HealthRequest.SerializeToString,
@@ -53,6 +58,12 @@ class PiiDetectorServicer(object):
     """Missing associated documentation comment in .proto file."""
 
     def Detect(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def ReplaceExclusions(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
@@ -71,6 +82,11 @@ def add_PiiDetectorServicer_to_server(servicer, server):
                     servicer.Detect,
                     request_deserializer=pii__pb2.DetectRequest.FromString,
                     response_serializer=pii__pb2.DetectResponse.SerializeToString,
+            ),
+            'ReplaceExclusions': grpc.unary_unary_rpc_method_handler(
+                    servicer.ReplaceExclusions,
+                    request_deserializer=pii__pb2.ReplaceExclusionsRequest.FromString,
+                    response_serializer=pii__pb2.ReplaceExclusionsResponse.SerializeToString,
             ),
             'Health': grpc.unary_unary_rpc_method_handler(
                     servicer.Health,
@@ -105,6 +121,33 @@ class PiiDetector(object):
             '/xcn.pii.v1.PiiDetector/Detect',
             pii__pb2.DetectRequest.SerializeToString,
             pii__pb2.DetectResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def ReplaceExclusions(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/xcn.pii.v1.PiiDetector/ReplaceExclusions',
+            pii__pb2.ReplaceExclusionsRequest.SerializeToString,
+            pii__pb2.ReplaceExclusionsResponse.FromString,
             options,
             channel_credentials,
             insecure,

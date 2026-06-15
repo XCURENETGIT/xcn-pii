@@ -82,6 +82,15 @@ class DetectPiiFileResponse(DetectPiiResponse):
     extracted_text_length: int
 
 
+class DetectionExclusionUploadResponse(BaseModel):
+    success: bool
+    status: int
+    path: str
+    updated_at: str
+    total_values: int
+    type_counts: dict[str, int]
+
+
 class GrpcTestRequest(BaseModel):
     target: str = Field(default="api-grpc:50051", min_length=3, max_length=255)
     method: Literal["Health", "Detect"] = "Health"

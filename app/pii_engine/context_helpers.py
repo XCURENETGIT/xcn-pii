@@ -482,15 +482,31 @@ def _is_name_like_korean_token(token: str, *, allow_extended_surname: bool = Fal
 def _has_name_like_token_near_span(line: str, rel_start: int, rel_end: int, max_distance: int) -> Tuple[bool, str]:
     if not line:
         return False, ""
-    # For row-pattern force-pass, accept only a name-like token placed before
-    # the PII span. Tokens after the number are often generic instructions
-    # such as "관련", "안내", "작성" and should not force-pass detection.
-    start = max(0, int(rel_start) - min(max(0, int(max_distance)), 12))
+    distance = min(max(0, int(max_distance)), 12)
+
+    start = max(0, int(rel_start) - distance)
     end = max(start, int(rel_start))
-    nearby = line[start:end]
-    for match in re.finditer(r"(?<![가-힣])([가-힣]{2,4}님?)(?![가-힣])", nearby):
+    before_nearby = line[start:end]
+    for match in re.finditer(r"(?<![가-힣])([가-힣]{2,4}님?)(?![가-힣])", before_nearby):
         token = match.group(0)
-        before = nearby[:match.start()]
+        before = before_nearby[:match.start()]
+        has_name_label = bool(_NAME_LABEL_HINT_RE.search(before[-24:]))
+        if _is_name_like_korean_token(
+            token,
+            allow_extended_surname=has_name_label,
+            allow_short_given=has_name_label,
+        ):
+            return True, token
+
+    # Also accept the common "PII + name" row shape. Keep the same short
+    # distance cap as the left-side scan so generic trailing instructions do
+    # not make an unrelated number pass.
+    after_start = max(0, int(rel_end))
+    after_end = min(len(line), after_start + distance)
+    after_nearby = line[after_start:after_end]
+    for match in re.finditer(r"(?<![가-힣])([가-힣]{2,4}님?)(?![가-힣])", after_nearby):
+        token = match.group(0)
+        before = after_nearby[:match.start()]
         has_name_label = bool(_NAME_LABEL_HINT_RE.search(before[-24:]))
         if _is_name_like_korean_token(
             token,

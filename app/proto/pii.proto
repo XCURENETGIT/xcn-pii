@@ -4,6 +4,7 @@ package xcn.pii.v1;
 
 service PiiDetector {
   rpc Detect(DetectRequest) returns (DetectResponse);
+  rpc ReplaceExclusions(ReplaceExclusionsRequest) returns (ReplaceExclusionsResponse);
   rpc Health(HealthRequest) returns (HealthResponse);
 }
 
@@ -98,6 +99,20 @@ message DetectResponse {
   string message = 3;
   PiiData data = 4;
   PiiMeta meta = 5;
+}
+
+message ReplaceExclusionsRequest {
+  string json_payload = 1;
+}
+
+message ReplaceExclusionsResponse {
+  bool success = 1;
+  int32 status = 2;
+  string message = 3;
+  string path = 4;
+  string updated_at = 5;
+  int32 total_values = 6;
+  map<string, int32> type_counts = 7;
 }
 
 message HealthRequest {}

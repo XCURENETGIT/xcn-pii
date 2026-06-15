@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import hashlib
+import json
 import logging
 import os
 import time
@@ -10,6 +11,7 @@ from typing import Any
 import grpc
 
 from .logging_utils import setup_file_logging
+from .detection_exclusions import exclusion_status, write_detection_exclusion_file
 from .pii import detect_with_meta
 from .pii_engine import preload_models
 from .proto import pii_pb2, pii_pb2_grpc
@@ -178,6 +180,61 @@ def serve() -> None:
                 service="xcn-pii-full-grpc",
                 version=APP_VERSION,
             )
+
+        def ReplaceExclusions(self, request, context):  # noqa: N802
+            try:
+                raw = request.json_payload or ""
+                if not raw.strip():
+                    context.set_code(grpc.StatusCode.INVALID_ARGUMENT)
+                    context.set_details("exclusion JSON payload is required")
+                    return pii_pb2.ReplaceExclusionsResponse(
+                        success=False,
+                        status=400,
+                        message="exclusion JSON payload is required",
+                    )
+                payload = json.loads(raw)
+                config = write_detection_exclusion_file(payload)
+                status = exclusion_status()
+                logger.info(
+                    "[exclusion] grpc ReplaceExclusions updated path=%s total_values=%d type_counts=%s",
+                    status["path"],
+                    config.total_values,
+                    config.type_counts,
+                )
+                return pii_pb2.ReplaceExclusionsResponse(
+                    success=True,
+                    status=200,
+                    message="OK",
+                    path=str(status["path"]),
+                    updated_at=str(status["updated_at"] or ""),
+                    total_values=int(config.total_values),
+                    type_counts={str(k): int(v) for k, v in config.type_counts.items()},
+                )
+            except json.JSONDecodeError as exc:
+                context.set_code(grpc.StatusCode.INVALID_ARGUMENT)
+                context.set_details(f"invalid JSON: {exc.msg}")
+                return pii_pb2.ReplaceExclusionsResponse(
+                    success=False,
+                    status=400,
+                    message=f"invalid JSON: {exc.msg}",
+                )
+            except ValueError as exc:
+                context.set_code(grpc.StatusCode.INVALID_ARGUMENT)
+                context.set_details(str(exc))
+                return pii_pb2.ReplaceExclusionsResponse(
+                    success=False,
+                    status=400,
+                    message=str(exc),
+                )
+            except Exception as exc:  # pragma: no cover
+                logger.exception("gRPC ReplaceExclusions failed")
+                context.set_code(grpc.StatusCode.INTERNAL)
+                context.set_details(str(exc))
+                return pii_pb2.ReplaceExclusionsResponse(
+                    success=False,
+                    status=500,
+                    message=str(exc),
+                )
 
     max_workers = max(1, _env_int("PII_GRPC_MAX_WORKERS", 4))
     max_concurrent_streams = max(1, _env_int("PII_GRPC_MAX_CONCURRENT_STREAMS", 1024))

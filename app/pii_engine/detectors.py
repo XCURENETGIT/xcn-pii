@@ -512,12 +512,14 @@ class MNPostFilter(Detector):
         reject_overlap_with: List[str],
         intl_digits_len_min: int = 8,
         intl_digits_len_max: int = 15,
+        reject_010_1xxx_4digit_middle: bool = True,
     ):
         self.enabled = enabled
         self.boundary_digit_reject = boundary_digit_reject
         self.reject_overlap_with = reject_overlap_with
         self.intl_digits_len_min = intl_digits_len_min
         self.intl_digits_len_max = intl_digits_len_max
+        self.reject_010_1xxx_4digit_middle = reject_010_1xxx_4digit_middle
 
     def run(self, ctx: DetectContext) -> None:
         if not self.enabled:
@@ -544,6 +546,10 @@ class MNPostFilter(Detector):
             ms = str(it.get("matchString", "")).strip()
             if not phone_structure_valid(ms):
                 continue
+            if self.reject_010_1xxx_4digit_middle:
+                digits = _digits_only(_normalize_digit_text(ms))
+                if len(digits) == 11 and digits.startswith("0101"):
+                    continue
             if ms.startswith("+"):
                 dig = _digits_only(ms)
                 if not (self.intl_digits_len_min <= len(dig) <= self.intl_digits_len_max):
