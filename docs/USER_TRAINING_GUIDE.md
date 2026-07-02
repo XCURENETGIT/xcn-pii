@@ -6,18 +6,28 @@
 
 XCN-PII는 입력 텍스트 또는 업로드 파일에서 개인정보 후보를 탐지하는 시스템입니다.
 
-탐지 대상은 다음 8종입니다.
+탐지 대상은 다음 16종입니다.
 
 | 코드 | 의미 | 예시 |
 | --- | --- | --- |
 | `SN` | 주민등록번호 | `900101-1234567` |
+| `FN` | 외국인등록번호 | `900101-5123450` |
 | `SSN` | Social Security Number | `123-45-6789` |
 | `DN` | 운전면허번호 | `11-22-333333-44` |
 | `PN` | 여권번호 | `M12345678` |
 | `MN` | 전화번호 | `010-1234-5678` |
+| `BRN` | 사업자등록번호 | `123-45-67890` |
 | `BN` | 계좌번호/은행번호 | 은행 계좌 형식 |
+| `AN` | 주소 | `서울시 은평구 가좌로 276` |
 | `CN` | 카드번호 | `4111-1111-1111-1111` |
 | `EML` | 이메일 | `test@example.com` |
+| `VN_CCCD` | 베트남 시민신분증/개인식별번호 | `001234567890` |
+| `VN_MN` | 베트남 휴대폰번호 | `098-123-4567` |
+| `VN_PN` | 베트남 여권번호 | `B12345678` |
+| `VN_TIN` | 베트남 세금번호/납세자번호 | `0312345678-001` |
+| `VN_SI` | 베트남 사회보험/건강보험 코드 | `0123456789` |
+
+베트남 10자리 계열 번호(`VN_TIN`, `VN_SI`)는 일반 숫자 오탐을 줄이기 위해 `ma so thue`, `ma so BHXH`, `BHYT` 같은 문맥 라벨과 함께 테스트하는 것을 권장합니다.
 
 ## 2. 제공 인터페이스
 
@@ -26,7 +36,7 @@ XCN-PII는 입력 텍스트 또는 업로드 파일에서 개인정보 후보를
 | HTTP API | `8005` | 기본 REST API 호출 |
 | HTTPS API | `28443` | TLS 적용 REST API 호출 |
 | gRPC direct | `50051` | 단일 gRPC 서버 호출 |
-| gRPC LB | `50055` | HAProxy/Envoy 로드밸런서 호출 |
+| gRPC LB | `50055` | HAProxy 로드밸런서 호출 |
 
 운영 환경에서 외부에 공개할 때는 HTTPS 전용 모드를 권장합니다.
 
@@ -197,34 +207,52 @@ IP로 접속할 서버라면 반드시 IP를 넣어 생성합니다.
 
 ## 8. 배포 패키지 만들기
 
-### HTTP CPU 패키지
+### CPU 단일 패키지
 
 ```bash
-./scripts/start_http_cpu.sh
-./scripts/package_deploy_bundle.sh --mode http-cpu --output-dir ./dist
-```
-
-### HTTPS 전용 CPU 패키지
-
-```bash
-./scripts/start_http_cpu.sh
-./scripts/package_http_cpu_https_only.sh --output-dir ./dist
+docker compose -f docker-compose.http-cpu.yml --profile http build api
+docker compose -f docker-compose.grpc-cpu.yml --profile grpc build api-grpc
+docker pull haproxy:3.1-alpine
+docker pull nginx:1.27-alpine
+./scripts/package_deploy_bundle.sh --output-dir ./dist
 ```
 
 생성 파일명 예:
 
 ```text
-xcn-pii-http-cpu-https-only-package-1.0.0-YYYYMMDD-HHMMSS.tar.gz
+xcn-pii-all-cpu-package-1.0.0-YYYYMMDD-HHMMSS.tar.gz
 ```
 
 배포 서버에서:
 
 ```bash
-tar -xzf xcn-pii-http-cpu-https-only-package-*.tar.gz
+tar -xzf xcn-pii-all-cpu-package-*.tar.gz
 cd xcn-pii
-./install.sh --no-start
-./scripts/make_self_signed_cert.sh <서버IP>
-./start.sh
+./install.sh --mode all --no-start
+docker compose up -d
+```
+
+`certs/tls.crt`, `certs/tls.key`가 없으면 `install.sh`가 자체서명 HTTPS 인증서를 생성합니다. 운영 인증서는 `docker compose up -d` 전에 같은 경로로 배치합니다.
+
+단일 패키지 모드:
+
+```bash
+./install.sh --mode grpc --no-start
+docker compose up -d
+
+./install.sh --mode http --no-start
+docker compose up -d
+
+./install.sh --mode https --no-start
+docker compose up -d
+```
+
+운영 명령:
+
+```bash
+docker compose ps
+docker compose logs -f
+docker compose down
 ```
 
 ## 9. 자주 발생하는 문제
@@ -281,4 +309,3 @@ HTTPS 전용 모드라면 `28443`은 보여야 하고, 외부 공개 HTTP 포트
 8. HTTPS 전용 패키지 생성
 9. 배포 서버에서 패키지 설치 및 실행
 10. SSL 오류와 포트 상태 점검
-

@@ -725,12 +725,21 @@ def _rule_context_score(
     digit_weight: float,
     header_hint: str = "",
     header_weight: float = 0.0,
+    label_direction: str = "both",
 ) -> float:
     score = 0.0
     if label_res:
         w = max(0, int(label_window))
-        s = max(0, start - w)
-        e = min(len(text), end + w)
+        direction = str(label_direction or "both").strip().lower()
+        if direction == "before":
+            s = max(0, start - w)
+            e = start
+        elif direction == "after":
+            s = end
+            e = min(len(text), end + w)
+        else:
+            s = max(0, start - w)
+            e = min(len(text), end + w)
         window = text[s:e]
         if any(rx.search(window) for rx in label_res):
             score += float(label_weight)

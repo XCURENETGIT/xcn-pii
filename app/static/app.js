@@ -114,7 +114,8 @@ function flattenToSpansAll(apiData) {
   };
 
   const types = [
-    "SN", "SSN", "DN", "PN", "MN", "BRN", "BN", "AN", "CN", "EML",
+    "SN", "FN", "SSN", "DN", "PN", "MN", "BRN", "BN", "AN", "CN", "EML",
+    "VN_CCCD", "VN_MN", "VN_PN", "VN_TIN", "VN_SI",
     "email", "eml"
   ];
   const spans = [];
@@ -214,26 +215,8 @@ function renderTable(rowsHtml) {
     </table>`;
 }
 
-function renderGuardrailSummary(guardrail) {
-  if (!guardrail || typeof guardrail !== "object") return "";
-  const status = guardrail.status || "unknown";
-  const unsafe = typeof guardrail.unsafe === "boolean" ? (guardrail.unsafe ? "unsafe" : "safe") : "unknown";
-  const latency = typeof guardrail.latency_ms === "number" ? `${guardrail.latency_ms.toFixed(1)} ms` : "-";
-  const score = typeof guardrail.score === "number" ? ` · score=${guardrail.score.toFixed(3)}` : "";
-  const labels = guardrail.labels && typeof guardrail.labels === "object"
-    ? Object.entries(guardrail.labels).map(([k, v]) => `${k}=${v}`).join(", ")
-    : "";
-  return `
-    <div class="guardrail-summary">
-      <b>Guardrail:</b>
-      <span class="${guardrail.unsafe ? "badText" : "okText"}">${escapeHtml(unsafe)}</span>
-      <span class="hint">status=${escapeHtml(status)} · latency=${escapeHtml(latency)}${score}${labels ? ` · ${escapeHtml(labels)}` : ""}</span>
-    </div>
-  `;
-}
-
 function renderTypeCounts(data) {
-  const keys = ["SN", "SSN", "DN", "PN", "MN", "BRN", "BN", "AN", "CN", "EML"];
+  const keys = ["SN", "FN", "SSN", "DN", "PN", "MN", "BRN", "BN", "AN", "CN", "EML", "VN_CCCD", "VN_MN", "VN_PN", "VN_TIN", "VN_SI"];
   return keys
     .map((key) => `${key} ${(data?.[key] || []).length}건`)
     .join(" · ");
@@ -344,7 +327,6 @@ async function detect() {
 
   // ✅ 현재 API 응답은 { success, status, data: PiiData } 형태
   const data = payload?.data || {};
-  const guardrail = payload?.guardrail || null;
   const spansAll = flattenToSpansAll(data);
   const spans = flattenToSpansNoOverlap(data);
 
@@ -358,7 +340,6 @@ async function detect() {
       <div class="card">
         <div><b>검출 결과:</b> ${spans.length}건 (length=${text.length})</div>
         <div class="hint">${renderTypeCounts(data)}</div>
-        ${renderGuardrailSummary(guardrail)}
         <div style="margin-top:10px; white-space:pre-wrap; line-height:1.7;">${highlighted}</div>
         <div class="list">
           <div class="subTitle" style="margin-top:10px;">탐지 항목 (${spansAll.length})</div>
@@ -371,13 +352,9 @@ async function detect() {
   const t4 = performance.now(); // DOM 반영 포함 총
 
   if (timingEl) {
-    const guardrailMs = guardrail && typeof guardrail.latency_ms === "number"
-      ? `가드레일 ${guardrail.latency_ms.toFixed(1)} ms · `
-      : "";
     timingEl.innerHTML =
       `<b>걸린시간</b> · ` +
       `요청(서버응답) ${(t1 - t0).toFixed(1)} ms · ` +
-      guardrailMs +
       `JSON파싱 ${(t2 - t1).toFixed(1)} ms · ` +
       `렌더준비 ${(t3 - t2).toFixed(1)} ms · ` +
       `총 ${(t4 - t0).toFixed(1)} ms`;

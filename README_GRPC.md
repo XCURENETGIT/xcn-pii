@@ -34,9 +34,7 @@ Environment:
 - `GRPC_INSTALL_SEMANTIC` (default `true`)
 - `PII_HS_COMBINED_ENABLED` (default `true`)
 - `PII_CONTEXT_EMBED_MAX_CHARS` (default `256`)
-- `PII_EMBED_DEVICE` (default `auto`; `cpu` or `cuda`)
-- `TORCH_INSTALL_PACKAGE` (optional, for example `torch`)
-- `TORCH_EXTRA_INDEX_URL` (optional, for example `https://download.pytorch.org/whl/cu118`)
+- `PII_EMBED_DEVICE` (fixed to `cpu`)
 
 ## Run (Docker Compose)
 
@@ -69,16 +67,6 @@ Host endpoint:
 Scale-out example:
 
 ```bash
-docker compose --profile grpc up -d --build api-grpc api-grpc-lb
-docker compose --profile grpc up -d --scale api-grpc=3 api-grpc
-```
-
-GPU example:
-
-```bash
-export PII_EMBED_DEVICE=cuda
-export TORCH_INSTALL_PACKAGE=torch
-export TORCH_EXTRA_INDEX_URL=https://download.pytorch.org/whl/cu118
 docker compose --profile grpc up -d --build api-grpc api-grpc-lb
 docker compose --profile grpc up -d --scale api-grpc=3 api-grpc
 ```
@@ -131,8 +119,6 @@ Direct mode:
 ```bash
 ./scripts/start_grpc_direct.sh
 ./scripts/stop_grpc_direct.sh
-./scripts/start_grpc_gpu_direct.sh
-./scripts/stop_grpc_gpu_direct.sh
 ```
 
 LB mode:
@@ -140,14 +126,7 @@ LB mode:
 ```bash
 ./scripts/start_grpc_lb_3.sh
 ./scripts/stop_grpc_lb_3.sh
-./scripts/start_grpc_gpu_lb_3.sh
-./scripts/stop_grpc_gpu_lb_3.sh
-./scripts/start_grpc_envoy_3.sh
-./scripts/stop_grpc_envoy_3.sh
 ```
-
-Envoy LB mode currently targets `xcn-api-grpc-1`, `xcn-api-grpc-2`, and
-`xcn-api-grpc-3` directly, so keep the replica count at `3` when using it.
 
 ## Benchmark Client
 

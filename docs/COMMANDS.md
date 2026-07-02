@@ -36,7 +36,7 @@ cp .env.example .env
 | `PII_GRPC_MAX_WORKERS` | `6` | gRPC worker 수 |
 | `PII_HS_COMBINED_ENABLED` | `true` | Hyperscan combined DB 사용 |
 | `PII_CONTEXT_EMBED_MAX_CHARS` | `256` | 문맥 임베딩 대상 최대 길이 |
-| `PII_EMBED_DEVICE` | `auto` | 임베딩 장치. `auto`, `cpu`, `cuda` |
+| `PII_EMBED_DEVICE` | `cpu` | 임베딩 장치. CPU 전용으로 고정 |
 | `PII_MODEL_PRELOAD_ENABLED` | `true` | 기동 시 모델 preload |
 | `PII_LOG_LEVEL` | `INFO` | 로그 레벨 |
 
@@ -111,14 +111,6 @@ docker compose --profile grpc up -d --build api-grpc api-grpc-lb
 docker compose --profile grpc up -d --no-build --scale api-grpc=3 api-grpc
 ```
 
-gRPC Envoy LB 실행:
-
-```bash
-docker compose --profile grpc up -d --build api-grpc
-docker compose --profile grpc up -d --no-build --scale api-grpc=3 api-grpc
-docker compose --profile grpc up -d --no-deps api-grpc-envoy
-```
-
 전체 종료:
 
 ```bash
@@ -137,7 +129,6 @@ docker compose ps
 docker compose logs -f api
 docker compose logs -f api-grpc
 docker compose logs -f api-grpc-lb
-docker compose logs -f api-grpc-envoy
 ```
 
 이미지 재빌드:
@@ -152,65 +143,69 @@ docker compose --profile grpc build api-grpc
 배포 패키지는 `VERSION` 값을 Docker 이미지 태그로 사용한다. 버전 변경 후에는 먼저 운영 모드 이미지를 빌드한 뒤 패키지를 만든다.
 기본 패키지는 문맥 기반 필터용 HuggingFace 캐시 Docker volume(`xcn-pii_hf_cache`)도 함께 포함한다. 최초 1회는 서비스를 띄운 뒤 문맥 필터가 동작하는 탐지 요청을 실행해 모델 캐시가 생성된 상태에서 패키지를 만든다.
 
-HTTP CPU와 gRPC CPU를 모두 포함하는 기본 패키지:
+HTTP, HTTPS, gRPC를 모두 포함하는 단일 CPU 패키지:
 
 ```bash
-./scripts/start_http_cpu.sh
-./scripts/start_grpc_cpu_lb_3.sh
-./scripts/package_deploy_bundle.sh --mode all-cpu --output-dir ./dist
+docker compose -f docker-compose.http-cpu.yml --profile http build api
+docker compose -f docker-compose.grpc-cpu.yml --profile grpc build api-grpc
+docker pull haproxy:3.1-alpine
+docker pull nginx:1.27-alpine
+./scripts/package_deploy_bundle.sh --output-dir ./dist
 ```
 
 문맥 모델 캐시를 제외해야 하는 경우:
 
 ```bash
-./scripts/package_deploy_bundle.sh --mode all-cpu --no-hf-cache --output-dir ./dist
+./scripts/package_deploy_bundle.sh --no-hf-cache --output-dir ./dist
 ```
 
-HTTP CPU만 포함:
+생성된 파일은 `dist/xcn-pii-all-cpu-package-<version>-<timestamp>.tar.gz` 형식이며, 압축 내부 최상위 폴더명은 항상 `xcn-pii`이다. 패키지 내부에는 런타임용 기본 `docker-compose.yml` 하나가 포함된다. `install.sh`는 옵션이 없으면 gRPC 모드로 설치하며, `certs/tls.crt`, `certs/tls.key`가 없으면 자체서명 HTTPS 인증서를 생성한다.
+gRPC 모드는 기본 `PII_GRPC_SCALE=3`으로 `api-grpc` 3 replica와 HAProxy LB를 기동한다.
+
+신규 서버 설치 및 기동:
 
 ```bash
-./scripts/start_http_cpu.sh
-./scripts/package_deploy_bundle.sh --mode http-cpu --output-dir ./dist
+tar -xzf xcn-pii-all-cpu-package-<version>-<timestamp>.tar.gz
+cd xcn-pii
+./install.sh --no-start
+docker compose up -d
 ```
 
-HTTP CPU HTTPS 전용 패키지:
+단일 패키지에서 모드별 설치:
 
 ```bash
-./scripts/start_http_cpu.sh
-./scripts/package_http_cpu_https_only.sh --output-dir ./dist
+./install.sh --no-start
+docker compose up -d
+
+./install.sh --mode grpc --no-start
+docker compose up -d
+
+./install.sh --mode http --no-start
+docker compose up -d
+
+./install.sh --mode https --no-start
+docker compose up -d
 ```
 
-gRPC CPU만 포함:
+`install.sh --mode`는 `.env`에 `COMPOSE_PROFILES`를 기록한다. 이후에는 동일하게 `docker compose up -d`, `docker compose down`을 사용한다.
+
+운영 명령:
 
 ```bash
-./scripts/start_grpc_cpu_lb_3.sh
-./scripts/package_deploy_bundle.sh --mode grpc-cpu --output-dir ./dist
+docker compose ps
+docker compose logs -f
+docker compose down
+docker compose up -d
 ```
 
-생성된 파일은 `dist/xcn-pii-<mode>-package-<version>-<timestamp>.tar.gz` 형식이며, 압축 내부 최상위 폴더명은 항상 `xcn-pii`이다. 신규 서버에서는 압축 해제 후 `cd xcn-pii && ./install.sh`를 실행한다. `install.sh`는 Docker 이미지를 로드하고 문맥 모델 캐시를 `xcn-pii_hf_cache` volume으로 복원한다. 컨테이너를 바로 시작하지 않으려면 `./install.sh --no-start`를 사용한다.
-HTTPS 포함 패키지는 `xcn-pii-<mode>-https-package-...`, HTTPS 전용 패키지는 `xcn-pii-<mode>-https-only-package-...` 형식으로 생성된다.
+기본 포트:
 
-패키지 내부 실행 스크립트:
-
-```bash
-./start.sh
-./stop.sh
-./scripts/start-http-cpu.sh
-./scripts/stop-http-cpu.sh
-./scripts/start-grpc-cpu.sh
-./scripts/stop-grpc-cpu.sh
-```
-
-`--mode all-cpu`로 만든 패키지는 HTTP와 gRPC를 함께 실행하는 기본 `start.sh`/`stop.sh` 외에 아래 개별 실행 파일도 포함한다.
-
-```bash
-./scripts/start-all-cpu.sh
-./scripts/stop-all-cpu.sh
-./scripts/start-http-cpu.sh
-./scripts/stop-http-cpu.sh
-./scripts/start-grpc-cpu.sh
-./scripts/stop-grpc-cpu.sh
-```
+| 서비스 | 포트 |
+| --- | --- |
+| 기본값 또는 `--mode grpc` | gRPC LB, api-grpc 3 replica | `50055` |
+| `--mode http` | HTTP | `8005` |
+| `--mode https` | HTTPS | `28443` |
+| `--mode all` | HTTP + HTTPS + gRPC LB, api-grpc 3 replica | `8005`, `28443`, `50055` |
 
 ## Runtime Patch Bundle
 
@@ -382,36 +377,12 @@ gRPC direct CPU:
 ./scripts/stop_grpc_direct.sh
 ```
 
-gRPC direct GPU:
-
-```bash
-./scripts/start_grpc_gpu_direct.sh
-./scripts/start_grpc_gpu_direct.sh 6
-./scripts/stop_grpc_gpu_direct.sh
-```
-
 gRPC HAProxy LB CPU:
 
 ```bash
 ./scripts/start_grpc_lb_3.sh
 ./scripts/start_grpc_lb_3.sh 6
 ./scripts/stop_grpc_lb_3.sh
-```
-
-gRPC HAProxy LB GPU:
-
-```bash
-./scripts/start_grpc_gpu_lb_3.sh
-./scripts/start_grpc_gpu_lb_3.sh 6
-./scripts/stop_grpc_gpu_lb_3.sh
-```
-
-gRPC Envoy LB:
-
-```bash
-./scripts/start_grpc_envoy_3.sh
-./scripts/start_grpc_envoy_3.sh 6
-./scripts/stop_grpc_envoy_3.sh
 ```
 
 ## Local Python
@@ -504,6 +475,18 @@ curl -X POST "http://localhost:8005/pii/detect" \
   }'
 ```
 
+베트남 개인정보 탐지:
+
+```bash
+curl -X POST "http://localhost:8005/pii/detect" \
+  -H "Content-Type: application/json" \
+  -H "X-PII-RULESET: default" \
+  -d '{
+    "text": "CCCD: 001234567890, so dien thoai 098-123-4567, ho chieu B12345678, ma so thue 0312345678-001, ma so BHXH 0123456789",
+    "max_results_per_type": 100
+  }'
+```
+
 파일 탐지:
 
 ```bash
@@ -580,6 +563,18 @@ grpcurl -plaintext \
   localhost:50055 xcn.pii.v1.PiiDetector/Detect
 ```
 
+Vietnam PII Detect LB:
+
+```bash
+grpcurl -plaintext \
+  -d '{
+    "text": "CCCD: 001234567890, so dien thoai 098-123-4567, ho chieu B12345678, ma so thue 0312345678-001, ma so BHXH 0123456789",
+    "max_results_per_type": 100,
+    "ruleset": "default"
+  }' \
+  localhost:50055 xcn.pii.v1.PiiDetector/Detect
+```
+
 ## Benchmark
 
 기본 gRPC benchmark:
@@ -647,7 +642,7 @@ python tools/eval_context_thresholds.py --update-context ""
 | HTTP | `8005` | `8000` | FastAPI HTTP/JSON |
 | HTTPS | `28443` | `443` | Nginx TLS proxy to HTTP API |
 | gRPC direct | `50051` | `50051` | 단일 gRPC 서버 |
-| gRPC LB | `50055` | `50051` | HAProxy 또는 Envoy LB |
+| gRPC LB | `50055` | `50051` | HAProxy LB |
 
 ## Common Checks
 
@@ -681,12 +676,6 @@ tail -f logs/*.log
 docker stats
 ```
 
-GPU 사용량 확인:
-
-```bash
-nvidia-smi
-```
-
 ## Recommended Modes
 
 개발 또는 단일 서버 단순 배포:
@@ -699,12 +688,6 @@ nvidia-smi
 
 ```bash
 ./scripts/start_grpc_lb_3.sh 6
-```
-
-GPU 임베딩 사용:
-
-```bash
-./scripts/start_grpc_gpu_lb_3.sh 6
 ```
 
 HTTP API만 외부 연동할 때:

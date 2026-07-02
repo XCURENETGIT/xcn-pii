@@ -1,0 +1,15 @@
+# Vietnam passport number.
+
+enabled: true
+
+patterns:
+  - name: vietnam_passport
+    # Current passport number: one letter followed by 8 digits.
+    expr: '[A-Za-z][0-9]{8}'
+    regex: '(?<![A-Za-z0-9])[A-Za-z][0-9]{8}(?![A-Za-z0-9])'
+    verify_regex: '(?<![A-Za-z0-9])[A-Za-z][0-9]{8}(?![A-Za-z0-9])'
+    flags:
+      utf8: false
+      ucp: false
+
+max_match_len: 12

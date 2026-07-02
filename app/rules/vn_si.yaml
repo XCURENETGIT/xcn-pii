@@ -1,0 +1,17 @@
+# Vietnam social insurance / health insurance code (Ma so BHXH/BHYT).
+
+enabled: true
+
+patterns:
+  - name: vietnam_social_insurance_code
+    # Current VSS social insurance code and new health insurance card number
+    # are 10 digits. Context labels are required by context.yaml to reduce
+    # generic 10-digit false positives.
+    expr: '[0-9]{10}'
+    regex: '(?<!\d)[0-9]{10}(?!\d)'
+    verify_regex: '(?<!\d)[0-9]{10}(?!\d)'
+    flags:
+      utf8: false
+      ucp: false
+
+max_match_len: 12

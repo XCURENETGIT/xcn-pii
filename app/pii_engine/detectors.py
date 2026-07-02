@@ -290,29 +290,40 @@ class SNDetector(Detector):
         scan_ms = _timing_ms(t0_scan)
 
         if not self.checksum_enabled:
+            sn_raw = [it for it in raw if not rrn_foreigner_registration_candidate(it.get("matchString") or "")]
+            fn_raw = [it for it in raw if rrn_foreigner_registration_candidate(it.get("matchString") or "")]
             existing_sn = ctx.get("SN") or []
-            ctx.set("SN", _finalize(existing_sn + raw))
-            _log_timing("sn.regex", req_id=ctx.request_id, scan_ms=f"{scan_ms:.1f}", checksum_ms="0.0", valid=len(raw), invalid=0)
+            existing_fn = ctx.get("FN") or []
+            ctx.set("SN", _finalize(existing_sn + sn_raw))
+            ctx.set("FN", _finalize(existing_fn + fn_raw))
+            _log_timing("sn.regex", req_id=ctx.request_id, scan_ms=f"{scan_ms:.1f}", checksum_ms="0.0", valid=len(sn_raw), fn_valid=len(fn_raw), invalid=0)
             return
 
         t0_checksum = _timing_now()
         sn_valid: List[dict] = []
+        fn_valid: List[dict] = []
 
         for it in raw:
             checksum_status = rrn_checksum_policy_status(it["matchString"])
             if checksum_status != "checksum_fail":
                 it["isValid"] = True
                 it["checksum_status"] = checksum_status
-                sn_valid.append(it)
+                if rrn_foreigner_registration_candidate(it["matchString"]):
+                    fn_valid.append(it)
+                else:
+                    sn_valid.append(it)
 
         existing_sn = ctx.get("SN") or []
+        existing_fn = ctx.get("FN") or []
         ctx.set("SN", _finalize(existing_sn + sn_valid))
+        ctx.set("FN", _finalize(existing_fn + fn_valid))
         _log_timing(
             "sn.regex",
             req_id=ctx.request_id,
             scan_ms=f"{scan_ms:.1f}",
             checksum_ms=f"{_timing_ms(t0_checksum):.1f}",
             valid=len(sn_valid),
+            fn_valid=len(fn_valid),
             invalid=0,
         )
 
@@ -372,22 +383,32 @@ class SNHSDetector(HSRegexDetector):
         verify_ms = _timing_ms(t0_verify)
 
         if not self.checksum_enabled:
+            sn_raw = [it for it in candidates if not rrn_foreigner_registration_candidate(it.get("matchString") or "")]
+            fn_raw = [it for it in candidates if rrn_foreigner_registration_candidate(it.get("matchString") or "")]
             existing_sn = ctx.get("SN") or []
-            ctx.set("SN", _finalize(existing_sn + candidates))
-            _log_timing("sn.hyperscan", req_id=ctx.request_id, scan_ms=f"{scan_ms:.1f}", verify_ms=f"{verify_ms:.1f}", checksum_ms="0.0", valid=len(candidates), invalid=0, shared_scan=int(shared_scan))
+            existing_fn = ctx.get("FN") or []
+            ctx.set("SN", _finalize(existing_sn + sn_raw))
+            ctx.set("FN", _finalize(existing_fn + fn_raw))
+            _log_timing("sn.hyperscan", req_id=ctx.request_id, scan_ms=f"{scan_ms:.1f}", verify_ms=f"{verify_ms:.1f}", checksum_ms="0.0", valid=len(sn_raw), fn_valid=len(fn_raw), invalid=0, shared_scan=int(shared_scan))
             return
 
         t0_checksum = _timing_now()
         sn_valid: List[dict] = []
+        fn_valid: List[dict] = []
         for it in candidates:
             checksum_status = rrn_checksum_policy_status(it["matchString"])
             if checksum_status != "checksum_fail":
                 it["isValid"] = True
                 it["checksum_status"] = checksum_status
-                sn_valid.append(it)
+                if rrn_foreigner_registration_candidate(it["matchString"]):
+                    fn_valid.append(it)
+                else:
+                    sn_valid.append(it)
 
         existing_sn = ctx.get("SN") or []
+        existing_fn = ctx.get("FN") or []
         ctx.set("SN", _finalize(existing_sn + sn_valid))
+        ctx.set("FN", _finalize(existing_fn + fn_valid))
         _log_timing(
             "sn.hyperscan",
             req_id=ctx.request_id,
@@ -395,6 +416,7 @@ class SNHSDetector(HSRegexDetector):
             verify_ms=f"{verify_ms:.1f}",
             checksum_ms=f"{_timing_ms(t0_checksum):.1f}",
             valid=len(sn_valid),
+            fn_valid=len(fn_valid),
             invalid=0,
             shared_scan=int(shared_scan),
         )
@@ -512,14 +534,14 @@ class MNPostFilter(Detector):
         reject_overlap_with: List[str],
         intl_digits_len_min: int = 8,
         intl_digits_len_max: int = 15,
-        reject_010_1xxx_4digit_middle: bool = True,
+        reject_010_0_or_1xxx_4digit_middle: bool = True,
     ):
         self.enabled = enabled
         self.boundary_digit_reject = boundary_digit_reject
         self.reject_overlap_with = reject_overlap_with
         self.intl_digits_len_min = intl_digits_len_min
         self.intl_digits_len_max = intl_digits_len_max
-        self.reject_010_1xxx_4digit_middle = reject_010_1xxx_4digit_middle
+        self.reject_010_0_or_1xxx_4digit_middle = reject_010_0_or_1xxx_4digit_middle
 
     def run(self, ctx: DetectContext) -> None:
         if not self.enabled:
@@ -546,9 +568,9 @@ class MNPostFilter(Detector):
             ms = str(it.get("matchString", "")).strip()
             if not phone_structure_valid(ms):
                 continue
-            if self.reject_010_1xxx_4digit_middle:
+            if self.reject_010_0_or_1xxx_4digit_middle:
                 digits = _digits_only(_normalize_digit_text(ms))
-                if len(digits) == 11 and digits.startswith("0101"):
+                if len(digits) == 11 and digits[:4] in {"0100", "0101"}:
                     continue
             if ms.startswith("+"):
                 dig = _digits_only(ms)

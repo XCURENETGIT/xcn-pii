@@ -17,13 +17,14 @@
 
 ## 2. 현재 탐지 대상
 
-default ruleset 기준으로 실제 pipeline에 포함된 탐지 항목은 다음 10개다.
+default ruleset 기준으로 실제 pipeline에 포함된 탐지 항목은 다음 16개다.
 
 | 키 | 의미 | default 탐지 | strict 탐지 | 문맥 필터 대상 |
 |---|---|---:|---:|---:|
 | `DN` | 운전면허번호 | O | O | O |
 | `SSN` | 해외 SSN | O | O | O |
 | `SN` | 주민등록번호 | O | O | O |
+| `FN` | 외국인등록번호 | O | O | O |
 | `PN` | 여권번호 | O | O | O |
 | `EML` | 이메일 | O | O | X |
 | `CN` | 카드번호 | O | O | O |
@@ -31,6 +32,11 @@ default ruleset 기준으로 실제 pipeline에 포함된 탐지 항목은 다�
 | `BRN` | 사업자등록번호 | O | O | X |
 | `BN` | 계좌번호 | O | O | O |
 | `AN` | 주소 | O | O | X |
+| `VN_CCCD` | 베트남 시민신분증/개인식별번호 | O | O | O |
+| `VN_MN` | 베트남 휴대폰번호 | O | O | O |
+| `VN_PN` | 베트남 여권번호 | O | O | O |
+| `VN_TIN` | 베트남 세금번호/납세자번호 | O | O | O |
+| `VN_SI` | 베트남 사회보험/건강보험 코드 | O | O | O |
 
 다음 파일은 존재하지만 현재 ruleset `steps`에 없으므로 기본 탐지 대상이 아니다.
 
@@ -57,14 +63,31 @@ context:
   window_sentences: 2
   target_keys:
     - SN
+    - FN
     - SSN
     - DN
     - PN
+    - BRN
     - BN
     - CN
+    - VN_CCCD
+    - VN_MN
+    - VN_PN
+    - VN_TIN
+    - VN_SI
 ```
 
-문맥 필터 대상은 `SN`, `SSN`, `DN`, `PN`, `BN`, `CN`이다.
+문맥 필터 대상은 `SN`, `FN`, `SSN`, `DN`, `PN`, `BRN`, `BN`, `CN`, `VN_CCCD`, `VN_MN`, `VN_PN`, `VN_TIN`, `VN_SI`이다.
+
+베트남 전용 타입 검증 시에는 다음 라벨을 함께 포함하는 샘플을 사용한다.
+
+| 타입 | 권장 라벨 예시 | 양성 샘플 |
+|---|---|---|
+| `VN_CCCD` | `CCCD`, `căn cước công dân`, `so can cuoc cong dan` | `CCCD: 001234567890` |
+| `VN_MN` | `số điện thoại`, `so dien thoai`, `sdt` | `so dien thoai 098-123-4567` |
+| `VN_PN` | `hộ chiếu`, `ho chieu`, `passport` | `ho chieu B12345678` |
+| `VN_TIN` | `mã số thuế`, `ma so thue`, `MST` | `ma so thue 0312345678-001` |
+| `VN_SI` | `mã số BHXH`, `ma so BHXH`, `BHYT` | `ma so BHXH 0123456789` |
 
 문맥 필터 통과 근거는 응답의 `context_accept_by`로 확인한다.
 

@@ -27,7 +27,6 @@ MANAGED_INCLUDE_FILES = [
     "app/main.py",
     "app/grpc_server.py",
     "app/context_debug_api.py",
-    "app/guardrail.py",
     "app/schemas.py",
 ]
 

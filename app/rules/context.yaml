@@ -13,12 +13,18 @@ context:
   # PII keys that should pass through context filtering.
   target_keys:
     - SN
+    - FN
     - SSN
     - DN
     - PN
     - BRN
     - BN
     - CN
+    - VN_CCCD
+    - VN_MN
+    - VN_PN
+    - VN_TIN
+    - VN_SI
   # Hybrid score options combined with semantic score.
   hybrid:
     enabled: true
@@ -64,11 +70,6 @@ context:
         - "재직증명서"
         - "기본증명서"
       force_pass_scope: snippet
-      foreigner_context_phrases:
-        - "foreigner"
-        - "foreign resident"
-        - "alien"
-        - "외국인"
       indicator_phrases:
         - "주민등록번호"
         - "주민 등록 번호"
@@ -85,21 +86,7 @@ context:
         - "resident number"
         - "korean resident registration number"
         - "national identification number"
-        - "foreigner registration number"
-        - "foreigner reg no"
-        - "foreigner reg number"
-        - "foreigner registration no"
-        - "alien registration number"
-        - "alien reg no"
-        - "arc number"
-        - "arc no"
-        - "foreign resident number"
-        - "외국인등록번호"
-        - "외국인 등록 번호"
-        - "외국인 등록증 번호"
-        - "외국인등록증번호"
         - "sn"
-        - "foreigner"
       non_pii_phrases:
         - "예시"
         - "샘플"
@@ -131,7 +118,41 @@ context:
       hybrid:
         name_pii_row_repeat_min_count: 1
         label_patterns:
-          - "(?i)\\bSN\\b|\\bRRN\\b|resident\\s+(?:registration\\s+)?number|korean\\s+resident\\s+registration\\s+number|national\\s+identification\\s+number|foreigner\\s+(?:registration\\s+)?(?:number|no\\.?|num)|foreigner\\s+reg(?:istration)?\\s*(?:number|no\\.?|num)|alien\\s+(?:registration\\s+)?(?:number|no\\.?|num)|alien\\s+reg(?:istration)?\\s*(?:number|no\\.?|num)|\\bARC\\s*(?:number|no\\.?|num)?\\b|foreign\\s+resident\\s+(?:number|no\\.?|num)|주민\\s*등록\\s*(?:증\\s*)?번호|주민\\s*등록|주민\\s*번호|주번|외국인\\s*등록\\s*(?:증\\s*)?번호|외국인\\s*등록"
+          - "(?i)\\bSN\\b|\\bRRN\\b|resident\\s+(?:registration\\s+)?number|korean\\s+resident\\s+registration\\s+number|national\\s+identification\\s+number|주민\\s*등록\\s*(?:증\\s*)?번호|주민\\s*등록|주민\\s*번호|주번"
+    FN:
+      sim_threshold: 0.60
+      indicator_phrases:
+        - "외국인등록번호"
+        - "외국인 등록 번호"
+        - "외국인 등록증 번호"
+        - "외국인등록증번호"
+        - "외국인번호"
+        - "외국인 번호"
+        - "foreigner registration number"
+        - "foreigner reg no"
+        - "foreigner reg number"
+        - "foreigner registration no"
+        - "alien registration number"
+        - "alien reg no"
+        - "arc number"
+        - "arc no"
+        - "foreign resident number"
+        - "foreigner"
+        - "foreign resident"
+        - "alien"
+        - "fn"
+      non_pii_phrases:
+        - "예시"
+        - "샘플"
+        - "테스트"
+        - "문서관리번호"
+        - "문서 번호"
+        - "관리번호"
+        - "마스킹"
+      hybrid:
+        name_pii_row_repeat_min_count: 1
+        label_patterns:
+          - "(?i)\\bFN\\b|foreigner\\s+(?:registration\\s+)?(?:number|no\\.?|num)|foreigner\\s+reg(?:istration)?\\s*(?:number|no\\.?|num)|alien\\s+(?:registration\\s+)?(?:number|no\\.?|num)|alien\\s+reg(?:istration)?\\s*(?:number|no\\.?|num)|\\bARC\\s*(?:number|no\\.?|num)?\\b|foreign\\s+resident\\s+(?:number|no\\.?|num)|외국인\\s*등록\\s*(?:증\\s*)?번호|외국인\\s*등록|외국인\\s*번호"
     SSN:
       sim_threshold: 0.20
       indicator_phrases:
@@ -310,7 +331,7 @@ context:
       hybrid:
         enabled: true
         accept_threshold: 0.25
-        label_window: 64
+        label_window: 18
         label_weight: 0.55
         digit_weight: 0.1
         label_patterns:
@@ -425,3 +446,182 @@ context:
         digit_weight: 0.0
         label_patterns:
           - "(?i)이\\s*메일\\s*(?:주소)?|메일\\s*(?:주소)?|전자\\s*(?:메일|우편)|email\\s*(?:address)?|e-?\\s*mail\\s*(?:address)?|mail\\s+address|contact\\s+email|o메일|\\bEML\\b"
+    VN_CCCD:
+      sim_threshold: 0.60
+      window_sentences: 1
+      embed_max_chars: 160
+      indicator_phrases:
+        - "căn cước công dân"
+        - "can cuoc cong dan"
+        - "số căn cước công dân"
+        - "so can cuoc cong dan"
+        - "số CCCD"
+        - "so CCCD"
+        - "CCCD"
+        - "số định danh cá nhân"
+        - "so dinh danh ca nhan"
+        - "mã định danh cá nhân"
+        - "ma dinh danh ca nhan"
+        - "chứng minh nhân dân"
+        - "chung minh nhan dan"
+        - "CMND"
+        - "citizen identity card"
+        - "citizen id"
+        - "national id"
+        - "personal identification number"
+        - "vietnam citizen id"
+        - "베트남 신분증"
+        - "베트남 주민번호"
+        - "베트남 개인식별번호"
+        - "베트남 CCCD"
+      non_pii_phrases:
+        - "ví dụ"
+        - "vi du"
+        - "mẫu"
+        - "mau"
+        - "thử nghiệm"
+        - "thu nghiem"
+        - "sample"
+        - "test"
+      hybrid:
+        enabled: true
+        accept_threshold: 0.40
+        label_window: 64
+        label_weight: 0.5
+        digit_weight: 0.0
+        label_patterns:
+          - "(?i)căn\\s*cước\\s*công\\s*dân|số\\s*căn\\s*cước\\s*công\\s*dân|số\\s*định\\s*danh\\s*cá\\s*nhân|mã\\s*định\\s*danh\\s*cá\\s*nhân|chứng\\s*minh\\s*nhân\\s*dân|can\\s+cuoc\\s+cong\\s+dan|so\\s*(?:CCCD|can\\s+cuoc|dinh\\s+danh)|ma\\s*dinh\\s*danh|chung\\s+minh\\s+nhan\\s+dan|\\b(?:CCCD|CMND)\\b|citizen\\s+(?:identity\\s+)?(?:card|id)|national\\s+id|personal\\s+identification\\s+number|vietnam\\s+citizen\\s+id|베트남\\s*(?:신분증|주민번호|개인식별번호|CCCD)"
+    VN_MN:
+      sim_threshold: 0.60
+      window_sentences: 1
+      embed_max_chars: 160
+      indicator_phrases:
+        - "số điện thoại"
+        - "so dien thoai"
+        - "điện thoại"
+        - "dien thoai"
+        - "số di động"
+        - "so di dong"
+        - "di động"
+        - "di dong"
+        - "sđt"
+        - "sdt"
+        - "mobile"
+        - "mobile number"
+        - "phone"
+        - "phone number"
+        - "telephone"
+        - "contact number"
+        - "vietnam mobile"
+        - "베트남 전화번호"
+        - "베트남 휴대폰"
+        - "베트남 연락처"
+      hybrid:
+        enabled: true
+        accept_threshold: 0.40
+        label_window: 48
+        label_weight: 0.45
+        digit_weight: 0.0
+        label_patterns:
+          - "(?i)s[oố]\\s*(?:[dđ]i[eệ]n\\s*tho[aạ]i|di\\s*d[oộ]ng)|so\\s*(?:dien\\s*thoai|di\\s*dong)|[dđ]i[eệ]n\\s*tho[aạ]i|dien\\s*thoai|di\\s*d[oộ]ng|di\\s*dong|s[dđ]t|mobile\\s*(?:number)?|phone\\s*(?:number)?|telephone|contact\\s*number|vietnam\\s*mobile|베트남\\s*(?:전화번호|휴대폰|연락처)"
+    VN_PN:
+      sim_threshold: 0.60
+      window_sentences: 1
+      embed_max_chars: 160
+      indicator_phrases:
+        - "hộ chiếu"
+        - "ho chieu"
+        - "số hộ chiếu"
+        - "so ho chieu"
+        - "passport"
+        - "passport number"
+        - "passport no"
+        - "vietnam passport"
+        - "베트남 여권"
+        - "베트남 여권번호"
+      hybrid:
+        enabled: true
+        accept_threshold: 0.40
+        label_window: 48
+        label_weight: 0.45
+        digit_weight: 0.0
+        label_patterns:
+          - "(?i)h[oộ]\\s*chi[eế]u|ho\\s*chieu|s[oố]\\s*h[oộ]\\s*chi[eế]u|so\\s*ho\\s*chieu|passport\\s*(?:number|no\\.?|#)?|vietnam\\s*passport|베트남\\s*여권\\s*(?:번호)?"
+    VN_TIN:
+      sim_threshold: 0.60
+      window_sentences: 1
+      embed_max_chars: 160
+      indicator_phrases:
+        - "mã số thuế"
+        - "ma so thue"
+        - "mã số thuế doanh nghiệp"
+        - "ma so thue doanh nghiep"
+        - "tax identification number"
+        - "tax code"
+        - "TIN"
+        - "MST"
+        - "business tax code"
+        - "베트남 세금번호"
+        - "베트남 납세자번호"
+        - "베트남 사업자 세금번호"
+      non_pii_phrases:
+        - "ví dụ"
+        - "vi du"
+        - "mẫu"
+        - "mau"
+        - "sample"
+        - "test"
+      hybrid:
+        enabled: true
+        repeat_boost_enabled: false
+        table_header_enabled: false
+        table_header_line_fallback: false
+        accept_threshold: 0.40
+        label_window: 18
+        label_direction: before
+        label_weight: 0.50
+        digit_weight: 0.0
+        label_patterns:
+          - "(?i)m[aã]\\s*s[oố]\\s*thu[eế]|ma\\s*so\\s*thue|m[aã]\\s*s[oố]\\s*thu[eế]\\s*doanh\\s*nghi[eệ]p|ma\\s*so\\s*thue\\s*doanh\\s*nghiep|tax\\s*(?:identification\\s*)?(?:number|code)|business\\s*tax\\s*code|\\b(?:TIN|MST)\\b|베트남\\s*(?:세금번호|납세자번호|사업자\\s*세금번호)"
+    VN_SI:
+      sim_threshold: 0.60
+      window_sentences: 1
+      embed_max_chars: 160
+      indicator_phrases:
+        - "mã số BHXH"
+        - "ma so BHXH"
+        - "số BHXH"
+        - "so BHXH"
+        - "mã số bảo hiểm xã hội"
+        - "ma so bao hiem xa hoi"
+        - "bảo hiểm xã hội"
+        - "bao hiem xa hoi"
+        - "mã thẻ BHYT"
+        - "ma the BHYT"
+        - "số thẻ BHYT"
+        - "so the BHYT"
+        - "bảo hiểm y tế"
+        - "bao hiem y te"
+        - "social insurance code"
+        - "health insurance card number"
+        - "베트남 사회보험번호"
+        - "베트남 건강보험번호"
+      non_pii_phrases:
+        - "ví dụ"
+        - "vi du"
+        - "mẫu"
+        - "mau"
+        - "sample"
+        - "test"
+      hybrid:
+        enabled: true
+        repeat_boost_enabled: false
+        table_header_enabled: false
+        table_header_line_fallback: false
+        accept_threshold: 0.40
+        label_window: 18
+        label_direction: before
+        label_weight: 0.50
+        digit_weight: 0.0
+        label_patterns:
+          - "(?i)m[aã]\\s*s[oố]\\s*BHXH|ma\\s*so\\s*BHXH|s[oố]\\s*BHXH|so\\s*BHXH|m[aã]\\s*s[oố]\\s*b[aả]o\\s*hi[eể]m\\s*x[aã]\\s*h[oộ]i|ma\\s*so\\s*bao\\s*hiem\\s*xa\\s*hoi|b[aả]o\\s*hi[eể]m\\s*x[aã]\\s*h[oộ]i|bao\\s*hiem\\s*xa\\s*hoi|m[aã]\\s*th[eẻ]\\s*BHYT|ma\\s*the\\s*BHYT|s[oố]\\s*th[eẻ]\\s*BHYT|so\\s*the\\s*BHYT|b[aả]o\\s*hi[eể]m\\s*y\\s*t[eế]|bao\\s*hiem\\s*y\\s*te|social\\s*insurance\\s*code|health\\s*insurance\\s*card\\s*number|\\b(?:BHXH|BHYT)\\b|베트남\\s*(?:사회보험번호|건강보험번호)"

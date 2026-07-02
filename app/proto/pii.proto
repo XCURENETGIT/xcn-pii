@@ -85,6 +85,24 @@ message PiiData {
 
   int32 an_cnt = 47;
   repeated MatchItem an = 48;
+
+  int32 vn_cccd_cnt = 49;
+  repeated MatchItem vn_cccd = 50;
+
+  int32 vn_mn_cnt = 51;
+  repeated MatchItem vn_mn = 52;
+
+  int32 vn_pn_cnt = 53;
+  repeated MatchItem vn_pn = 54;
+
+  int32 vn_tin_cnt = 55;
+  repeated MatchItem vn_tin = 56;
+
+  int32 vn_si_cnt = 57;
+  repeated MatchItem vn_si = 58;
+
+  int32 fn_cnt = 59;
+  repeated MatchItem fn = 60;
 }
 
 message PiiMeta {

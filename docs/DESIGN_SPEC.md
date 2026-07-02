@@ -33,8 +33,8 @@
 - 문맥 기반 post-filter
 - 긴 텍스트 split 처리
 - long payload fast-path 처리
-- CPU/GPU 운영 모드
-- gRPC direct/LB/Envoy 운영 모드
+- CPU 전용 운영 모드
+- gRPC direct/LB 운영 모드
 - 성능 측정 스크립트 제공
 
 ## 2. 시스템 구성
@@ -72,7 +72,6 @@ Rule / Model Layer
   - YAML rule files
   - context config
   - sentence-transformers model
-  - optional SGuard model
 ```
 
 ### 2.2 물리 구성
@@ -86,7 +85,6 @@ Rule / Model Layer
 | 룰셋 | `app/rules/` | YAML 기반 탐지 룰 |
 | 파일 추출 | `app/file_text_extract.py`, `bin/xutf_8` | 업로드 파일 텍스트 추출 |
 | 문맥 모델 | sentence-transformers | semantic context filter |
-| Guardrail | `app/guardrail.py` | SGuard 기반 옵션 기능 |
 
 ## 3. 인터페이스 설계
 
@@ -131,7 +129,6 @@ X-PII-RULESET: strict
 | `status` | 상태 코드 |
 | `data` | PII 타입별 탐지 결과 |
 | `meta` | 룰셋 메타 정보 |
-| `guardrail` | Guardrail 결과. 비활성화 시 생략 |
 
 PII 타입별 결과는 `SN_CNT`, `SN`처럼 count와 배열의 쌍으로 반환된다. 결과가 없는 타입은 응답에서 생략될 수 있다.
 
@@ -238,7 +235,7 @@ SSN -> sn -> dn -> pn -> EML -> cn -> mn -> bn -> post_mn -> post_bn
 | `DNDetector` | 운전면허번호 Hyperscan 탐지 |
 | `MNPostFilter` | 전화번호 후보 후처리 |
 | `BNPostFilter` | 계좌번호 후보 후처리 |
-| `ContextualLLMPostFilter` | embedding 기반 문맥 필터 |
+| `ContextualLLMPostFilter` | sentence-transformers embedding 기반 문맥 필터. 이름은 기존 호환성 유지용이며 생성형 LLM 호출은 수행하지 않음 |
 | `ContextualPostFilter` | keyword 기반 문맥 필터 |
 
 ### 4.5 Hyperscan 및 Regex fallback
@@ -252,13 +249,23 @@ Hyperscan 사용 가능 패턴은 사전 검증 후 DB로 컴파일된다. Hyper
 | 타입 | 설명 | 주요 탐지 방식 | 검증/후처리 | 문맥 필터 |
 | --- | --- | --- | --- | --- |
 | `SN` | 주민등록번호 | Hyperscan 우선, regex fallback | checksum 검증 | default 대상 |
+| `FN` | 외국인등록번호 | SN 후보 스캔 후 분리 | checksum 검증, 뒤 7자리 첫 숫자 `5`~`8` | default 대상 |
 | `SSN` | Social Security Number | Hyperscan 우선, regex fallback | 구조 검증 | default 대상 |
 | `DN` | 운전면허번호 | Hyperscan 우선, regex fallback | verify regex | default 대상 |
 | `PN` | 여권번호 | Hyperscan 우선, regex fallback | verify regex | default 대상 |
 | `MN` | 전화번호 | Hyperscan 우선, regex fallback | 전화번호 구조, 경계 숫자, overlap reject | 룰에는 설정 존재, default target에서는 제외 |
+| `BRN` | 사업자등록번호 | Hyperscan 우선, regex fallback | 사업자등록번호 구조 검증 | 룰에는 설정 존재, default target에서는 제외 |
 | `BN` | 계좌번호/은행번호 | regex | 길이, 전화번호 유사, 주민번호 유사, overlap reject | default 대상 |
+| `AN` | 주소 | regex | 주소 구성요소 검증 | 룰에는 설정 존재, default target에서는 제외 |
 | `CN` | 카드번호 | Hyperscan 우선, regex fallback | 카드번호 구조 검증 | default 대상 |
 | `EML` | 이메일 | Hyperscan 우선, regex fallback | 이메일 구조 검증 | 룰에는 설정 존재, default target에서는 제외 |
+| `VN_CCCD` | 베트남 시민신분증/개인식별번호 | Hyperscan 우선, regex fallback | 12자리 및 성/시 코드 prefix 검증 | default 대상 |
+| `VN_MN` | 베트남 휴대폰번호 | Hyperscan 우선, regex fallback | 이동통신사 prefix 및 10자리 구조 검증 | default 대상 |
+| `VN_PN` | 베트남 여권번호 | Hyperscan 우선, regex fallback | 영문 1자리 + 숫자 8자리 구조 검증 | default 대상 |
+| `VN_TIN` | 베트남 세금번호/납세자번호 | regex | 10자리 또는 10자리+3자리 branch suffix | default 대상, 앞쪽 라벨 중심 |
+| `VN_SI` | 베트남 사회보험/건강보험 코드 | regex | 10자리 구조 검증 | default 대상, 앞쪽 라벨 중심 |
+
+외국인등록번호(`FN`)는 주민등록번호(`SN`)와 동일한 후보 스캔 결과에서 분기한다. 뒤 7자리 첫 숫자가 `5`, `6`, `7`, `8`이면 `FN`으로 반환하고, `1`, `2`, `3`, `4`는 `SN`으로 반환한다. 베트남 전용 타입의 문맥 라벨은 베트남어 성조 포함/미포함 표현, 영문 표현, 한국어 운영 표현을 포함한다. `VN_TIN`, `VN_SI`는 일반 10자리 숫자와 충돌 가능성이 높아 문맥 hybrid 설정에서 `label_direction: before`와 짧은 `label_window`를 사용한다.
 
 ## 6. 룰셋 설계
 
@@ -273,10 +280,17 @@ Hyperscan 사용 가능 패턴은 사전 검증 후 DB로 컴파일된다. Hyper
 | `app/rules/dn.yaml` | 운전면허번호 룰 |
 | `app/rules/pn.yaml` | 여권번호 룰 |
 | `app/rules/mn.yaml` | 전화번호 룰 |
+| `app/rules/brn.yaml` | 사업자등록번호 룰 |
 | `app/rules/bn.yaml` | 계좌번호 룰 |
 | `app/rules/bn_strict.yaml` | strict 계좌번호 룰 |
+| `app/rules/an.yaml` | 주소 룰 |
 | `app/rules/cn.yaml` | 카드번호 룰 |
 | `app/rules/eml.yaml` | 이메일 룰 |
+| `app/rules/vn_cccd.yaml` | 베트남 시민신분증/개인식별번호 룰 |
+| `app/rules/vn_mn.yaml` | 베트남 휴대폰번호 룰 |
+| `app/rules/vn_pn.yaml` | 베트남 여권번호 룰 |
+| `app/rules/vn_tin.yaml` | 베트남 세금번호/납세자번호 룰 |
+| `app/rules/vn_si.yaml` | 베트남 사회보험/건강보험 코드 룰 |
 | `app/rules/context.yaml` | 문맥 필터 설정 |
 
 ### 6.2 룰셋 전환
@@ -310,7 +324,7 @@ HTTP에서는 `X-PII-RULESET` header를 사용한다. gRPC에서는 `DetectReque
 | 모델 | `sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2` |
 | 기본 threshold | `0.55` |
 | context window | 주변 문장 2개 |
-| target keys | `SN`, `SSN`, `DN`, `PN`, `BN`, `CN` |
+| target keys | `SN`, `FN`, `SSN`, `DN`, `PN`, `BRN`, `BN`, `CN`, `VN_CCCD`, `VN_MN`, `VN_PN`, `VN_TIN`, `VN_SI` |
 
 ### 7.3 Hybrid scoring
 
@@ -356,7 +370,7 @@ chunk 결과는 원문 offset 기준으로 보정되며, `(start, end, matchStri
 | `PII_FASTPATH_ENABLED` | `true` |
 | `PII_FASTPATH_TEXT_LEN` | `50000` |
 | `PII_FASTPATH_MAX_RESULTS_PER_TYPE` | `200` |
-| `PII_FASTPATH_TARGET_KEYS` | `SN,SSN,DN,PN,MN,EML,CN` |
+| `PII_FASTPATH_TARGET_KEYS` | `SN,FN,SSN,DN,PN,MN,BRN,AN,EML,CN,VN_CCCD,VN_MN,VN_PN,VN_TIN,VN_SI` |
 
 ## 9. 파일 탐지 설계
 
@@ -381,23 +395,9 @@ chunk 결과는 원문 offset 기준으로 보정되며, `(start, end, matchStri
 | `XUTF8_BINARY_PATH` | `/app/bin/xutf_8` |
 | `XUTF8_TIMEOUT_SEC` | `60` |
 
-## 10. Guardrail 설계
+## 10. 배포 설계
 
-Guardrail은 SGuard 모델을 사용해 입력 텍스트의 안전성 평가를 수행하는 옵션 기능이다. 기본값은 비활성화이다.
-
-| 변수 | 기본값 |
-| --- | --- |
-| `PII_GUARDRAIL_ENABLED` | `false` |
-| `PII_GUARDRAIL_PROVIDER` | `sguard` |
-| `PII_GUARDRAIL_DEVICE` | `cuda` |
-| `PII_GUARDRAIL_MAX_CHARS` | `4000` |
-| `PII_GUARDRAIL_FAIL_OPEN` | `true` |
-
-CPU 운영 모드에서는 guardrail을 비활성화하고 device를 CPU로 강제한다.
-
-## 11. 배포 설계
-
-### 11.1 HTTP 배포
+### 10.1 HTTP 배포
 
 | 항목 | 값 |
 | --- | --- |
@@ -407,7 +407,7 @@ CPU 운영 모드에서는 guardrail을 비활성화하고 device를 CPU로 강�
 | Host port | `8005` |
 | Container port | `8000` |
 
-### 11.2 HTTP CPU 배포
+### 10.2 HTTP CPU 배포
 
 | 항목 | 값 |
 | --- | --- |
@@ -417,12 +417,9 @@ CPU 운영 모드에서는 guardrail을 비활성화하고 device를 CPU로 강�
 
 특징:
 
-- GPU reservation 없음
 - `PII_EMBED_DEVICE=cpu`
-- `PII_GUARDRAIL_ENABLED=false`
-- `NVIDIA_VISIBLE_DEVICES=void`
 
-### 11.3 HTTPS 배포
+### 10.3 HTTPS 배포
 
 | 항목 | 값 |
 | --- | --- |
@@ -454,15 +451,11 @@ CPU 운영 모드에서는 guardrail을 비활성화하고 device를 CPU로 강�
 | --- | --- | --- |
 | direct | 단일 `api-grpc` | `50051` |
 | HAProxy LB | `api-grpc` 3 replica + `api-grpc-lb` | `50055` |
-| Envoy LB | `api-grpc` 3 replica + `api-grpc-envoy` | `50055` |
 
 관련 스크립트:
 
 - `start_grpc_direct.sh`
-- `start_grpc_gpu_direct.sh`
 - `start_grpc_lb_3.sh`
-- `start_grpc_gpu_lb_3.sh`
-- `start_grpc_envoy_3.sh`
 
 ## 12. 운영 설계
 
@@ -533,7 +526,7 @@ gRPC LB 실행:
 - 타입별 탐지 건수
 - stage별 slow log
 - 컨테이너 상태
-- CPU/GPU 사용률
+- CPU 사용률
 - gRPC throughput
 - Nginx HTTPS proxy 상태
 
@@ -577,10 +570,6 @@ HTTPS는 Nginx proxy에서 TLS를 종료한다. 인증서는 `certs/tls.crt`, `c
 
 TLS private key가 저장소에 포함되지 않도록 `certs/`는 `.gitignore`에 등록되어 있다.
 
-### 14.4 Guardrail
-
-SGuard 기반 guardrail은 옵션 기능이다. 기본적으로 비활성화되어 있으며, 활성화 시 fail-open 정책을 적용할 수 있다.
-
 ## 15. 제약사항
 
 - 공개 API 자체 인증은 제공하지 않는다.
@@ -588,7 +577,7 @@ SGuard 기반 guardrail은 옵션 기능이다. 기본적으로 비활성화되�
 - 문맥 필터는 embedding 모델 성능과 threshold 설정에 영향을 받는다.
 - 매우 긴 문서의 경우 split/fast-path 설정에 따라 일부 타입의 탐지 범위가 제한될 수 있다.
 - 파일 탐지는 `xutf_8` 추출 성공 여부에 의존한다.
-- CPU 모드에서 semantic embedding을 사용하는 경우 GPU 모드 대비 latency가 증가할 수 있다.
+- semantic embedding은 CPU에서 동작하므로 입력 길이와 후보 수에 따라 latency가 증가할 수 있다.
 
 ## 16. 향후 개선사항
 
@@ -610,7 +599,7 @@ SGuard 기반 guardrail은 옵션 기능이다. 기본적으로 비활성화되�
 | --- | --- | --- |
 | `PII_RULESET` | `default` | 기본 룰셋 |
 | `PII_MODEL_PRELOAD_ENABLED` | `true` | 모델 preload |
-| `PII_EMBED_DEVICE` | `auto` | 임베딩 장치 |
+| `PII_EMBED_DEVICE` | `cpu` | 임베딩 장치. CPU 전용으로 고정 |
 | `PII_HS_COMBINED_ENABLED` | `true` | combined Hyperscan |
 | `PII_CONTEXT_EMBED_MAX_CHARS` | `256` | context embedding 최대 길이 |
 | `PII_SPLIT_ENABLED` | `true` | 긴 텍스트 split |

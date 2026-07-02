@@ -72,6 +72,7 @@ def _build_data(pb2: Any, found: dict) -> Any:
 
     field_map = {
         "SN": ("sn_cnt", "sn"),
+        "FN": ("fn_cnt", "fn"),
         "SSN": ("ssn_cnt", "ssn"),
         "DN": ("dn_cnt", "dn"),
         "PN": ("pn_cnt", "pn"),
@@ -81,6 +82,11 @@ def _build_data(pb2: Any, found: dict) -> Any:
         "AN": ("an_cnt", "an"),
         "CN": ("cn_cnt", "cn"),
         "EML": ("eml_cnt", "eml"),
+        "VN_CCCD": ("vn_cccd_cnt", "vn_cccd"),
+        "VN_MN": ("vn_mn_cnt", "vn_mn"),
+        "VN_PN": ("vn_pn_cnt", "vn_pn"),
+        "VN_TIN": ("vn_tin_cnt", "vn_tin"),
+        "VN_SI": ("vn_si_cnt", "vn_si"),
     }
     kwargs: dict[str, Any] = {}
     for key, (cnt_field, items_field) in field_map.items():
@@ -92,11 +98,14 @@ def _build_data(pb2: Any, found: dict) -> Any:
     return pb2.PiiData(**kwargs)
 
 
+def _format_count_summary(found: dict) -> str:
+    keys = ("SN", "FN", "SSN", "DN", "PN", "MN", "BRN", "BN", "AN", "CN", "EML", "VN_CCCD", "VN_MN", "VN_PN", "VN_TIN", "VN_SI")
+    return " ".join(f"{key}={len(found.get(key, []) or [])}" for key in keys)
+
+
 def _log_detect_summary(req_id: str, text: str, max_results_per_type: int, ruleset: str | None, found: dict, detect_ms: float, total_ms: float) -> None:
     logger.info(
-        "[request] grpc Detect\n"
-        "  req=%s chars=%d bytes=%d max_results_per_type=%d ruleset=%s\n"
-        "  text=%s",
+        "[request] api=grpc method=Detect req=%s chars=%d bytes=%d max_results=%d ruleset=%s text=\"%s\"",
         req_id,
         len(text),
         len(text.encode("utf-8", errors="ignore")),
@@ -105,22 +114,11 @@ def _log_detect_summary(req_id: str, text: str, max_results_per_type: int, rules
         _truncate_request_text(text),
     )
     logger.info(
-        "[timing] grpc Detect\n"
-        "  req=%s detect_ms=%.1f total_ms=%.1f\n"
-        "  kept: SN=%d SSN=%d DN=%d PN=%d MN=%d BRN=%d BN=%d AN=%d CN=%d EML=%d",
+        "[summary] api=grpc method=Detect req=%s status=200 detect_ms=%.1f total_ms=%.1f counts=\"%s\"",
         req_id,
         detect_ms,
         total_ms,
-        len(found.get("SN", [])),
-        len(found.get("SSN", [])),
-        len(found.get("DN", [])),
-        len(found.get("PN", [])),
-        len(found.get("MN", [])),
-        len(found.get("BRN", [])),
-        len(found.get("BN", [])),
-        len(found.get("AN", [])),
-        len(found.get("CN", [])),
-        len(found.get("EML", [])),
+        _format_count_summary(found),
     )
 
 def serve() -> None:

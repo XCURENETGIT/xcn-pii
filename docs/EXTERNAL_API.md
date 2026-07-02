@@ -1,4 +1,4 @@
-# xcn-pii-new External API
+# xcn-pii External API
 
 이 문서는 외부 연동용 공개 API 기준 문서다. 내부 디버그 API나 운영용 구현 세부사항은 제외한다.
 
@@ -10,6 +10,7 @@
   - gRPC
 - 주요 탐지 타입:
   - `SN`
+  - `FN`
   - `SSN`
   - `DN`
   - `PN`
@@ -19,6 +20,32 @@
   - `AN`
   - `CN`
   - `EML`
+  - `VN_CCCD`
+  - `VN_MN`
+  - `VN_PN`
+  - `VN_TIN`
+  - `VN_SI`
+
+탐지 타입 요약:
+
+| 타입 | 의미 | 대표 형식 |
+| --- | --- | --- |
+| `SN` | 한국 주민등록번호 | `900101-1234567` |
+| `FN` | 외국인등록번호 | `900101-5123450` |
+| `SSN` | 미국 Social Security Number | `123-45-6789` |
+| `DN` | 운전면허번호 | `11-22-333333-44` |
+| `PN` | 여권번호 | `M12345678` |
+| `MN` | 전화번호/휴대폰번호 | `010-1234-5678` |
+| `BRN` | 사업자등록번호 | `123-45-67890` |
+| `BN` | 계좌번호/은행 관련 번호 | 은행명 또는 계좌 라벨 주변 숫자 |
+| `AN` | 주소 | `서울시 은평구 가좌로 276` |
+| `CN` | 카드번호 | `4111-1111-1111-1111` |
+| `EML` | 이메일 | `test@example.com` |
+| `VN_CCCD` | 베트남 시민신분증/개인식별번호 | `001234567890` |
+| `VN_MN` | 베트남 휴대폰번호 | `098-123-4567` |
+| `VN_PN` | 베트남 여권번호 | `B12345678` |
+| `VN_TIN` | 베트남 세금번호/납세자번호 | `0312345678`, `0312345678-001` |
+| `VN_SI` | 베트남 사회보험/건강보험 코드 | `0123456789` |
 
 ## Base Endpoints
 
@@ -247,7 +274,14 @@ Notes:
 - `types`: 타입별 예외 값
 - `entries`: `{ "type": "<PII_TYPE>", "value": "<EXCLUDED_VALUE>" }` 배열
 - 타입 키를 최상위에 직접 둘 수도 있다. 예: `{ "SN": ["900101-1234567"] }`
+- 외국인등록번호는 `SN`이 아니라 `FN` 타입으로 예외처리한다.
+- 베트남 전용 타입도 예외처리 가능하다. 예: `VN_CCCD`, `VN_MN`, `VN_PN`, `VN_TIN`, `VN_SI`
 - 비교 시 대소문자, 공백, 주요 구분자(`-`, `.`, `_`, `@`, `:`, `/`, `\`) 차이는 정규화된다.
+- 예외 값에 `*`가 포함되면 wildcard 패턴으로 처리한다.
+  - `*1234`: 정규화된 탐지값이 `1234`로 끝나면 제외
+  - `900101*`: 정규화된 탐지값이 `900101`로 시작하면 제외
+  - `*101123*`: 정규화된 탐지값에 `101123`이 포함되면 제외
+- 예외 값에 `*`가 없으면 정규화 후 전체 값이 일치하는 경우에만 제외한다.
 - 저장 경로는 `PII_DETECTION_EXCLUSION_FILE` 환경변수로 변경할 수 있으며 기본값은 `data/pii_detection_exclusions.json`이다.
 
 Success response example:
@@ -289,7 +323,7 @@ curl -X PUT "http://<host>:8005/pii/exclusions" \
 
 Proto:
 
-- [`app/proto/pii.proto`](/C:/xcn_prj/xcn-pii-new/app/proto/pii.proto)
+- [`app/proto/pii.proto`](/C:/xcn_prj/xcn-pii/app/proto/pii.proto)
 
 Service:
 
@@ -354,6 +388,17 @@ message DetectResponse {
 }
 ```
 
+`PiiData`에는 HTTP 응답과 동일한 타입의 count/list 필드가 포함된다. gRPC 필드명은 proto 관례에 따라 소문자 snake_case를 사용한다.
+
+| HTTP 필드 | gRPC 필드 |
+| --- | --- |
+| `FN_CNT`, `FN` | `fn_cnt`, `fn` |
+| `VN_CCCD_CNT`, `VN_CCCD` | `vn_cccd_cnt`, `vn_cccd` |
+| `VN_MN_CNT`, `VN_MN` | `vn_mn_cnt`, `vn_mn` |
+| `VN_PN_CNT`, `VN_PN` | `vn_pn_cnt`, `vn_pn` |
+| `VN_TIN_CNT`, `VN_TIN` | `vn_tin_cnt`, `vn_tin` |
+| `VN_SI_CNT`, `VN_SI` | `vn_si_cnt`, `vn_si` |
+
 gRPC example with `grpcurl`:
 
 ```bash
@@ -415,12 +460,26 @@ grpcurl -plaintext \
   <host>:50055 xcn.pii.v1.PiiDetector/ReplaceExclusions
 ```
 
+Vietnam PII example:
+
+```bash
+grpcurl -plaintext \
+  -d '{
+    "text": "CCCD: 001234567890, so dien thoai 098-123-4567, ho chieu B12345678, ma so thue 0312345678-001, ma so BHXH 0123456789",
+    "max_results_per_type": 100,
+    "ruleset": "default"
+  }' \
+  <host>:50055 xcn.pii.v1.PiiDetector/Detect
+```
+
 ## Result Semantics
 
 - `start`, `end`는 원문 문자열 기준 offset이다.
 - 동일 타입에서 여러 결과가 반환될 수 있다.
 - 결과는 문맥 점수나 후처리 결과에 따라 최종 유지된 항목만 반환된다.
 - `CN`은 HTTP/JSON과 gRPC 응답 모두에서 제공된다.
+- 베트남 전용 타입은 `VN_CCCD`(시민신분증), `VN_MN`(휴대폰 번호), `VN_PN`(여권번호), `VN_TIN`(세금번호), `VN_SI`(사회보험/건강보험 코드)로 반환된다.
+- `VN_TIN`, `VN_SI`는 10자리 숫자 형식이 다른 업무 번호와 충돌하기 쉬우므로 문맥 라벨이 후보 앞쪽에 있는 경우를 중심으로 통과시킨다.
 
 ## Recommended Client Handling
 

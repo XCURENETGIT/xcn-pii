@@ -1,0 +1,210 @@
+{
+  "description": "베트남 PII 탐지/미탐 혼합 테스트 샘플입니다. 각 케이스는 request.text와 request.max_results_per_type 값을 POST /pii/detect로 전송해 검증할 수 있습니다.",
+  "pii_types": [
+    "VN_CCCD",
+    "VN_MN",
+    "VN_PN",
+    "VN_TIN",
+    "VN_SI"
+  ],
+  "cases": [
+    {
+      "id": "탐지_성조포함_베트남어라벨_전체유형",
+      "purpose": "성조가 포함된 베트남어 라벨이 있으면 모든 베트남 PII 유형이 탐지되어야 합니다.",
+      "request": {
+        "text": "Hồ sơ khách hàng Việt Nam\nSố căn cước công dân: 079213456789\nSố điện thoại: 0981234567\nSố hộ chiếu: B12345678\nMã số thuế: 0312345678\nMã số BHXH: 7938922623",
+        "max_results_per_type": 100
+      },
+      "expected": {
+        "VN_CCCD": [
+          "079213456789"
+        ],
+        "VN_MN": [
+          "0981234567"
+        ],
+        "VN_PN": [
+          "B12345678"
+        ],
+        "VN_TIN": [
+          "0312345678"
+        ],
+        "VN_SI": [
+          "7938922623"
+        ]
+      }
+    },
+    {
+      "id": "탐지_무성조_베트남어라벨_전체유형",
+      "purpose": "성조가 없는 베트남어 라벨도 문맥 필터를 통과해야 합니다.",
+      "request": {
+        "text": "Thong tin khach hang\nso CCCD 001199123456\nso dien thoai 032-123-4567\nho chieu C87654321\nma so thue 0101243150-001\nma the BHYT 0123456789",
+        "max_results_per_type": 100
+      },
+      "expected": {
+        "VN_CCCD": [
+          "001199123456"
+        ],
+        "VN_MN": [
+          "032-123-4567"
+        ],
+        "VN_PN": [
+          "C87654321"
+        ],
+        "VN_TIN": [
+          "0101243150-001"
+        ],
+        "VN_SI": [
+          "0123456789"
+        ]
+      }
+    },
+    {
+      "id": "탐지_한국어라벨_전체유형",
+      "purpose": "한국어로 된 베트남 PII 설명 라벨도 문맥 라벨로 인정되어야 합니다.",
+      "request": {
+        "text": "베트남 고객 등록 정보\n베트남 신분증: 024188654321\n베트남 휴대폰: 091 234 5678\n베트남 여권번호: D11223344\n베트남 세금번호: 0312345678-001\n베트남 사회보험번호: 1234567890",
+        "max_results_per_type": 100
+      },
+      "expected": {
+        "VN_CCCD": [
+          "024188654321"
+        ],
+        "VN_MN": [
+          "091 234 5678"
+        ],
+        "VN_PN": [
+          "D11223344"
+        ],
+        "VN_TIN": [
+          "0312345678-001"
+        ],
+        "VN_SI": [
+          "1234567890"
+        ]
+      }
+    },
+    {
+      "id": "탐지_휴대폰번호_구분자조합",
+      "purpose": "베트남 휴대폰번호는 하이픈, 점, 공백 구분자를 허용해야 합니다.",
+      "request": {
+        "text": "số điện thoại chính: 098-123-4567\nsố di động phụ: 097.111.2222\nsdt backup: 088 765 4321",
+        "max_results_per_type": 100
+      },
+      "expected": {
+        "VN_CCCD": [],
+        "VN_MN": [
+          "098-123-4567",
+          "097.111.2222",
+          "088 765 4321"
+        ],
+        "VN_PN": [],
+        "VN_TIN": [],
+        "VN_SI": []
+      }
+    },
+    {
+      "id": "탐지_세금번호_사회보험번호_값별라벨",
+      "purpose": "VN_TIN과 VN_SI는 일반 10자리 숫자와 충돌하기 쉬우므로 각 값 주변에 라벨이 있을 때 탐지되어야 합니다.",
+      "request": {
+        "text": "Cong ty A - ma so thue: 0312345678, ma so BHXH: 7938922623\nChi nhanh B - ma so thue: 0101243150-001, so the BHYT: 0123456789",
+        "max_results_per_type": 100
+      },
+      "expected": {
+        "VN_CCCD": [],
+        "VN_MN": [],
+        "VN_PN": [],
+        "VN_TIN": [
+          "0312345678",
+          "0101243150-001"
+        ],
+        "VN_SI": [
+          "7938922623",
+          "0123456789"
+        ]
+      }
+    },
+    {
+      "id": "혼합_표형식_CCCD휴대폰여권탐지_TIN_SI미탐",
+      "purpose": "표 헤더 문맥에서 CCCD, 휴대폰, 여권은 탐지되지만 VN_TIN과 VN_SI는 헤더만으로 통과하지 않는 경계 케이스입니다.",
+      "request": {
+        "text": "Ho ten | CCCD | So dien thoai | Ho chieu | MST | BHXH\nNguyen Van A | 079200987654 | 0887654321 | S11223344 | 0312345678 | 7938922623\nTran Thi B | 001188123456 | 097-111-2222 | B99887766 | 0101243150-001 | 0123456789",
+        "max_results_per_type": 100
+      },
+      "expected": {
+        "VN_CCCD": [
+          "079200987654",
+          "001188123456"
+        ],
+        "VN_MN": [
+          "0887654321",
+          "097-111-2222"
+        ],
+        "VN_PN": [
+          "S11223344",
+          "B99887766"
+        ],
+        "VN_TIN": [],
+        "VN_SI": []
+      }
+    },
+    {
+      "id": "미탐_라벨없는_숫자형값",
+      "purpose": "베트남 PII 문맥이 없는 숫자형 값은 탐지 결과에서 제외되어야 합니다.",
+      "request": {
+        "text": "Ma don hang 079213456789, serial 0981234567, asset B12345678, batch 0312345678, ticket 7938922623.",
+        "max_results_per_type": 100
+      },
+      "expected": {
+        "VN_CCCD": [],
+        "VN_MN": [],
+        "VN_PN": [],
+        "VN_TIN": [],
+        "VN_SI": []
+      }
+    },
+    {
+      "id": "미탐_잘못된형식",
+      "purpose": "잘못된 지역 코드, 휴대폰 prefix, 여권 형식, 숫자 길이는 탐지되지 않아야 합니다.",
+      "request": {
+        "text": "CCCD 999213456789\nso dien thoai 0311234567\nho chieu 12345678\nma so thue 123456789\nma so BHXH 12345678901",
+        "max_results_per_type": 100
+      },
+      "expected": {
+        "VN_CCCD": [],
+        "VN_MN": [],
+        "VN_PN": [],
+        "VN_TIN": [],
+        "VN_SI": []
+      }
+    },
+    {
+      "id": "미탐_여권번호_경계값",
+      "purpose": "베트남 여권번호는 영문 1자와 숫자 8자리 형식만 탐지되어야 합니다.",
+      "request": {
+        "text": "số hộ chiếu hợp lệ B12345678\nKhông phải hộ chiếu: AB12345678, B123456789, 12345678",
+        "max_results_per_type": 100
+      },
+      "expected": {
+        "VN_CCCD": [],
+        "VN_MN": [],
+        "VN_PN": [
+          "B12345678"
+        ],
+        "VN_TIN": [],
+        "VN_SI": []
+      }
+    }
+  ],
+  "http_example": {
+    "method": "POST",
+    "url": "http://<host>:8005/pii/detect",
+    "headers": {
+      "Content-Type": "application/json",
+      "X-PII-RULESET": "default"
+    },
+    "body": {
+      "text": "<cases[n].request.text>",
+      "max_results_per_type": 100
+    }
+  }
+}

@@ -6,9 +6,14 @@ steps:
   - sn
   - dn
   - pn
+  - vn_pn
   - EML
   - cn
   - mn
+  - vn_mn
+  - vn_cccd
+  - vn_tin
+  - vn_si
   - brn
   - bn
   - an
@@ -20,7 +25,12 @@ rule_files:
   SSN: ssn.yaml
   dn: dn.yaml
   pn: pn.yaml
+  vn_pn: vn_pn.yaml
   mn: mn.yaml
+  vn_mn: vn_mn.yaml
+  vn_cccd: vn_cccd.yaml
+  vn_tin: vn_tin.yaml
+  vn_si: vn_si.yaml
   brn: brn.yaml
   bn: bn_strict.yaml
   an: an.yaml

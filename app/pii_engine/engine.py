@@ -72,14 +72,14 @@ class PiiEngine:
         # - PII_FASTPATH_ENABLED (default=true)
         # - PII_FASTPATH_TEXT_LEN (default=50000)
         # - PII_FASTPATH_MAX_RESULTS_PER_TYPE (default=200)
-        # - PII_FASTPATH_TARGET_KEYS (default=SN,SSN,DN,PN,MN,BRN,AN,EML,CN)
+        # - PII_FASTPATH_TARGET_KEYS (default=SN,FN,SSN,DN,PN,MN,BRN,AN,EML,CN,VN_CCCD,VN_MN,VN_PN,VN_TIN,VN_SI)
         text_len = len(source_text)
         fast_enabled = _env_bool("PII_FASTPATH_ENABLED", True)
         fast_len = max(1, _env_int("PII_FASTPATH_TEXT_LEN", 50000))
         fast_max = max(1, _env_int("PII_FASTPATH_MAX_RESULTS_PER_TYPE", 200))
         fast_keys = _env_csv_upper(
             "PII_FASTPATH_TARGET_KEYS",
-            "SN,SSN,DN,PN,MN,BRN,AN,EML,CN",
+            "SN,FN,SSN,DN,PN,MN,BRN,AN,EML,CN,VN_CCCD,VN_MN,VN_PN,VN_TIN,VN_SI",
         )
         fast_mode = bool(fast_enabled and text_len >= fast_len)
         allowed_keys = set(fast_keys)
@@ -117,7 +117,7 @@ class PiiEngine:
                         restore.append((step, "enabled", step.enabled))
                         step.enabled = False
                 elif isinstance(step, SNDetector):
-                    if "SN" not in allowed_keys:
+                    if "SN" not in allowed_keys and "FN" not in allowed_keys:
                         restore.append((step, "enabled", step.enabled))
                         step.enabled = False
                 elif isinstance(step, DNDetector):
@@ -223,6 +223,7 @@ class PiiEngine:
         # BN context-rejected noise cleanup against overlap priority types.
         _cleanup_bn_ctx_rejected_overlap(ctx.out, self.bundle.rule_docs.get("bn") or {})
         _remap_output_spans(ctx.out, source_text, kept_positions)
+        _resolve_cross_type_overlaps(ctx.out)
 
         # If debug not requested, strip debug entries
         if not include_debug and "__context_debug" in ctx.out:
@@ -244,7 +245,7 @@ class PiiEngine:
 
         if include_scores:
             scores: Dict[str, List[dict]] = {}
-            for k in ["SN", "SSN", "DN", "PN", "MN", "BRN", "BN", "AN", "CN", "EML"]:
+            for k in ["SN", "FN", "SSN", "DN", "PN", "MN", "BRN", "BN", "AN", "CN", "EML", "VN_CCCD", "VN_MN", "VN_PN", "VN_TIN", "VN_SI"]:
                 items = ctx.out.get(k, []) or []
                 lst: List[dict] = []
                 for it in items:

@@ -41,9 +41,9 @@ max_match_len: 32
 postfilter:
   enabled: true
   boundary_digit_reject: true
-  # Exclude 010-1xxx-xxxx style numbers. These can be public-sector/internal
+  # Exclude 010-0xxx-xxxx and 010-1xxx-xxxx style numbers. These can be public-sector/internal
   # service numbers rather than personal mobile numbers.
-  reject_010_1xxx_4digit_middle: true
+  reject_010_0_or_1xxx_4digit_middle: true
   intl_digits_length:
     min: 8
     max: 15

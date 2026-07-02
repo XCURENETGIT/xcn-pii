@@ -13,10 +13,6 @@ fi
 
 pii_export_image_version "${PROJECT_ROOT}"
 export PII_EMBED_DEVICE=cpu
-export PII_GUARDRAIL_ENABLED=false
-export PII_GUARDRAIL_DEVICE=cpu
-export NVIDIA_VISIBLE_DEVICES=void
-export NVIDIA_DRIVER_CAPABILITIES=
 
 echo "Starting HTTP CPU mode with HTTPS proxy on port ${PII_HTTPS_PORT:-28443}"
 docker compose -f docker-compose.http-cpu.yml -f docker-compose.https.yml --profile http --profile https up -d --build api https-proxy

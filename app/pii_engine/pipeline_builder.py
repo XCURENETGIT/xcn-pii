@@ -64,6 +64,21 @@ def build_pipeline(bundle: RuleBundle) -> List[Detector]:
     mn_hs_supported = _get_hs_supported_pattern_indexes(mn_doc, macros={})
     mn_supplement_regexes = _build_regexes_by_indexes(mn_doc, set(range(len(mn_doc.get("patterns") or []))) - mn_hs_supported, macros={})
 
+    vn_pn_doc = docs.get("vn_pn") or {}
+    vn_pn_regexes = _build_regexes(vn_pn_doc, macros={})
+
+    vn_mn_doc = docs.get("vn_mn") or {}
+    vn_mn_regexes = _build_regexes(vn_mn_doc, macros={})
+
+    vn_cccd_doc = docs.get("vn_cccd") or {}
+    vn_cccd_regexes = _build_regexes(vn_cccd_doc, macros={})
+
+    vn_tin_doc = docs.get("vn_tin") or {}
+    vn_tin_regexes = _build_regexes(vn_tin_doc, macros={})
+
+    vn_si_doc = docs.get("vn_si") or {}
+    vn_si_regexes = _build_regexes(vn_si_doc, macros={})
+
     brn_doc = docs.get("brn") or {}
     brn_regexes = _build_regexes(brn_doc, macros={})
 
@@ -300,6 +315,11 @@ def build_pipeline(bundle: RuleBundle) -> List[Detector]:
                 pipeline.append(RegexDetector("PN", pn_regexes, enabled=bool(pn_doc.get("enabled", True)), max_match_len=max_len))
             continue
 
+        if step == "vn_pn":
+            max_len = int(vn_pn_doc.get("max_match_len") or max_len_default)
+            pipeline.append(RegexDetector("VN_PN", vn_pn_regexes, enabled=bool(vn_pn_doc.get("enabled", True)), max_match_len=max_len))
+            continue
+
         if step == "mn":
             max_len = int(mn_doc.get("max_match_len") or max_len_default)
             hs_db = _select_hs_db("MN", hs_mn_db)
@@ -322,6 +342,26 @@ def build_pipeline(bundle: RuleBundle) -> List[Detector]:
         if step == "bn":
             max_len = int(bn_doc.get("max_match_len") or max_len_default)
             pipeline.append(RegexDetector("BN", bn_regexes, enabled=bool(bn_doc.get("enabled", True)), max_match_len=max_len))
+            continue
+
+        if step == "vn_mn":
+            max_len = int(vn_mn_doc.get("max_match_len") or max_len_default)
+            pipeline.append(RegexDetector("VN_MN", vn_mn_regexes, enabled=bool(vn_mn_doc.get("enabled", True)), max_match_len=max_len))
+            continue
+
+        if step == "vn_cccd":
+            max_len = int(vn_cccd_doc.get("max_match_len") or max_len_default)
+            pipeline.append(RegexDetector("VN_CCCD", vn_cccd_regexes, enabled=bool(vn_cccd_doc.get("enabled", True)), max_match_len=max_len))
+            continue
+
+        if step == "vn_tin":
+            max_len = int(vn_tin_doc.get("max_match_len") or max_len_default)
+            pipeline.append(RegexDetector("VN_TIN", vn_tin_regexes, enabled=bool(vn_tin_doc.get("enabled", True)), max_match_len=max_len))
+            continue
+
+        if step == "vn_si":
+            max_len = int(vn_si_doc.get("max_match_len") or max_len_default)
+            pipeline.append(RegexDetector("VN_SI", vn_si_regexes, enabled=bool(vn_si_doc.get("enabled", True)), max_match_len=max_len))
             continue
 
         if step == "brn":
@@ -431,7 +471,12 @@ def build_pipeline(bundle: RuleBundle) -> List[Detector]:
                     reject_overlap_with=[str(x) for x in (post.get("reject_overlap_with") or [])],
                     intl_digits_len_min=int(intl_digits_len.get("min", 8)),
                     intl_digits_len_max=int(intl_digits_len.get("max", 15)),
-                    reject_010_1xxx_4digit_middle=bool(post.get("reject_010_1xxx_4digit_middle", True)),
+                    reject_010_0_or_1xxx_4digit_middle=bool(
+                        post.get(
+                            "reject_010_0_or_1xxx_4digit_middle",
+                            post.get("reject_010_1xxx_4digit_middle", True),
+                        )
+                    ),
                 )
             )
             continue
@@ -461,7 +506,16 @@ def build_pipeline(bundle: RuleBundle) -> List[Detector]:
             enabled = bool(ctx_doc.get("enabled", True))
             window = int(ctx_doc.get("window_sentences", 2))
             method = str(ctx_doc.get("method") or "keyword")
-            target_keys = [str(x) for x in (ctx_doc.get("target_keys") or ["SN", "SSN", "DN", "PN", "MN", "BRN", "BN", "CN", "EML"])]
+            target_keys = [
+                str(x)
+                for x in (
+                    ctx_doc.get("target_keys")
+                    or [
+                        "SN", "FN", "SSN", "DN", "PN", "MN", "BRN", "BN", "CN", "EML",
+                        "VN_CCCD", "VN_MN", "VN_PN", "VN_TIN", "VN_SI",
+                    ]
+                )
+            ]
             indicator_phrases = ctx_doc.get("indicator_phrases") if isinstance(ctx_doc.get("indicator_phrases"), list) else None
             non_pii_phrases = ctx_doc.get("non_pii_phrases") if isinstance(ctx_doc.get("non_pii_phrases"), list) else None
             if method in ("embed", "semantic"):

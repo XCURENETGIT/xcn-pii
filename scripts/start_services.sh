@@ -28,7 +28,7 @@ pii_export_image_version "${PROJECT_ROOT}"
 export PII_GRPC_MAX_WORKERS="${GRPC_WORKERS}"
 export PII_HS_COMBINED_ENABLED="${PII_HS_COMBINED_ENABLED:-true}"
 export PII_CONTEXT_EMBED_MAX_CHARS="${PII_CONTEXT_EMBED_MAX_CHARS:-256}"
-export PII_EMBED_DEVICE="${PII_EMBED_DEVICE:-auto}"
+export PII_EMBED_DEVICE=cpu
 
 if [[ "${TARGET}" == "http" ]]; then
   echo "Starting HTTP services"

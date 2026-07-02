@@ -1,7 +1,7 @@
 ﻿from __future__ import annotations
 
 from pydantic import BaseModel, Field
-from typing import Any, List, Literal, Optional
+from typing import List, Literal, Optional
 
 
 class DetectPiiRequest(BaseModel):
@@ -28,6 +28,8 @@ class MatchItem(BaseModel):
 class PiiData(BaseModel):
     SN_CNT: Optional[int] = None
     SN: Optional[List[MatchItem]] = None
+    FN_CNT: Optional[int] = None
+    FN: Optional[List[MatchItem]] = None
     SSN_CNT: Optional[int] = None
     SSN: Optional[List[MatchItem]] = None
     DN_CNT: Optional[int] = None
@@ -46,6 +48,16 @@ class PiiData(BaseModel):
     CN: Optional[List[MatchItem]] = None
     EML_CNT: Optional[int] = None
     EML: Optional[List[MatchItem]] = None
+    VN_CCCD_CNT: Optional[int] = None
+    VN_CCCD: Optional[List[MatchItem]] = None
+    VN_MN_CNT: Optional[int] = None
+    VN_MN: Optional[List[MatchItem]] = None
+    VN_PN_CNT: Optional[int] = None
+    VN_PN: Optional[List[MatchItem]] = None
+    VN_TIN_CNT: Optional[int] = None
+    VN_TIN: Optional[List[MatchItem]] = None
+    VN_SI_CNT: Optional[int] = None
+    VN_SI: Optional[List[MatchItem]] = None
 
 class PiiMeta(BaseModel):
     ruleset_name: str
@@ -53,28 +65,11 @@ class PiiMeta(BaseModel):
     ruleset_updated_at: str
 
 
-class GuardrailResult(BaseModel):
-    enabled: bool
-    provider: str
-    model: str
-    status: str
-    unsafe: bool
-    labels: dict[str, Any] | None = None
-    score: Optional[float] = None
-    top_labels: dict[str, float] | None = None
-    content: dict[str, Any] | None = None
-    jailbreak: dict[str, Any] | None = None
-    raw_output: Optional[str] = None
-    error: Optional[str] = None
-    latency_ms: Optional[int] = None
-
-
 class DetectPiiResponse(BaseModel):
     success: bool
     status: int
     data: PiiData
     meta: PiiMeta | None = None
-    guardrail: GuardrailResult | None = None
 
 
 class DetectPiiFileResponse(DetectPiiResponse):

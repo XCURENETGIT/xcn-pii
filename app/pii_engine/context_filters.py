@@ -4,19 +4,13 @@ from typing import Any, DefaultDict, Dict, List, Tuple
 
 from .common import *
 from .context_helpers import *
+from ..hf_runtime import configure_hf_runtime, hf_offline_enabled
 
 
 def _resolve_embed_device() -> str:
-    requested = str(os.getenv("PII_EMBED_DEVICE", "auto")).strip().lower()
-    if requested in {"cpu", "cuda"}:
-        return requested
-    try:
-        import torch
-
-        if torch.cuda.is_available():
-            return "cuda"
-    except Exception:
-        pass
+    requested = str(os.getenv("PII_EMBED_DEVICE", "cpu")).strip().lower()
+    if requested and requested != "cpu":
+        logger.warning("PII_EMBED_DEVICE=%s is ignored in CPU-only mode; using cpu", requested)
     return "cpu"
 
 
@@ -34,7 +28,10 @@ class ContextualPostFilter(Detector):
         hybrid_cfg: Dict[str, Any] | None = None,
     ):
         self.enabled = enabled
-        self.target_keys = target_keys or ["SN", "SSN", "DN", "PN", "MN", "BRN", "BN", "CN", "EML"]
+        self.target_keys = target_keys or [
+            "SN", "FN", "SSN", "DN", "PN", "MN", "BRN", "BN", "CN", "EML",
+            "VN_CCCD", "VN_MN", "VN_PN", "VN_TIN", "VN_SI",
+        ]
         self.window_sentences = int(window_sentences)
         self.threshold = int(threshold)
         self.debug = bool(debug)
@@ -125,6 +122,8 @@ class ContextualPostFilter(Detector):
                 detected_by = "hyperscan:dn"
             elif key == "SN":
                 detected_by = "regex:sn"
+            elif key == "FN":
+                detected_by = "regex:fn"
             else:
                 detected_by = f"regex:{key.lower()}"
             type_cfg = self._get_type_cfg(key)
@@ -155,6 +154,7 @@ class ContextualPostFilter(Detector):
                 label_patterns = [re.escape(str(x)) for x in indicators if str(x).strip()]
             label_res = self._get_label_res(key, label_patterns) if label_patterns else []
             label_window = int(hybrid.get("label_window", 12))
+            label_direction = str(hybrid.get("label_direction") or "both")
             label_weight = float(hybrid.get("label_weight", 0.3))
             table_header_enabled = bool(hybrid.get("table_header_enabled", True))
             table_header_line_fallback = bool(hybrid.get("table_header_line_fallback", True))
@@ -258,7 +258,7 @@ class ContextualPostFilter(Detector):
                     it["context_force_pass_phrase"] = force_phrase
                     kept.append(it)
                     continue
-                if key == "SN" and rrn_foreigner_registration_candidate(str(it.get("matchString") or "")):
+                if key == "FN" and rrn_foreigner_registration_candidate(str(it.get("matchString") or "")):
                     foreigner_phrase = _find_matching_phrase(snippet, foreigner_context_phrases)
                     if foreigner_phrase:
                         it["context_pass"] = True
@@ -332,6 +332,7 @@ class ContextualPostFilter(Detector):
                         match_str=str(it.get("matchString") or ""),
                         label_res=label_res,
                         label_window=label_window,
+                        label_direction=label_direction,
                         label_weight=label_weight,
                         header_hint=header_hint,
                         header_weight=table_header_weight,
@@ -443,7 +444,10 @@ class ContextualLLMPostFilter(Detector):
         hybrid_cfg: Dict[str, Any] | None = None,
     ):
         self.enabled = enabled
-        self.target_keys = target_keys or ["SN", "SSN", "DN", "PN", "MN", "BRN", "BN", "CN", "EML"]
+        self.target_keys = target_keys or [
+            "SN", "FN", "SSN", "DN", "PN", "MN", "BRN", "BN", "CN", "EML",
+            "VN_CCCD", "VN_MN", "VN_PN", "VN_TIN", "VN_SI",
+        ]
         self.window_sentences = int(window_sentences)
         self.sim_threshold = float(sim_threshold)
         self.model_name = str(model_name)
@@ -525,9 +529,9 @@ class ContextualLLMPostFilter(Detector):
 
         phrases = [_normalize_match_text(x) for x in (indicators + non_indicators)]
         if hasattr(self.model, "encode"):
-            embs = self.model.encode(phrases, convert_to_numpy=True, normalize_embeddings=True)
+            embs = self.model.encode(phrases, convert_to_numpy=True, normalize_embeddings=True, show_progress_bar=False)
         else:
-            embs = self.model.encode(phrases)
+            embs = self.model.encode(phrases, show_progress_bar=False)
 
         import numpy as _np
         embs = _np.asarray(embs)
@@ -544,7 +548,7 @@ class ContextualLLMPostFilter(Detector):
         if self.embedder is not None:
             self.model = self.embedder
             phrases = [_normalize_match_text(x) for x in (self._indicator_phrases + self._non_pii_phrases)]
-            embs = self.model.encode(phrases)
+            embs = self.model.encode(phrases, show_progress_bar=False)
             import numpy as _np
             embs = _np.asarray(embs)
             self._indicator_emb = _np.asarray(embs[: len(self._indicator_phrases)])
@@ -559,11 +563,24 @@ class ContextualLLMPostFilter(Detector):
             return
 
         device = _resolve_embed_device()
-        self.model = SentenceTransformer(self.model_name, device=device)
+        configure_hf_runtime()
+        local_files_only = hf_offline_enabled()
+        try:
+            self.model = SentenceTransformer(self.model_name, device=device, local_files_only=local_files_only)
+        except TypeError:
+            try:
+                self.model = SentenceTransformer(
+                    self.model_name,
+                    device=device,
+                    model_kwargs={"local_files_only": local_files_only},
+                    tokenizer_kwargs={"local_files_only": local_files_only},
+                )
+            except TypeError:
+                self.model = SentenceTransformer(self.model_name, device=device)
         logger.info("Loaded sentence-transformer model=%s device=%s", self.model_name, device)
         # compute normalized embeddings for indicator phrases
         phrases = [_normalize_match_text(x) for x in (self._indicator_phrases + self._non_pii_phrases)]
-        embs = self.model.encode(phrases, convert_to_numpy=True, normalize_embeddings=True)
+        embs = self.model.encode(phrases, convert_to_numpy=True, normalize_embeddings=True, show_progress_bar=False)
         import numpy as _np
         self._indicator_emb = _np.asarray(embs[: len(self._indicator_phrases)])
         self._non_pii_emb = _np.asarray(embs[len(self._indicator_phrases) :])
@@ -665,9 +682,9 @@ class ContextualLLMPostFilter(Detector):
             t0_encode_all = _timing_now()
             uniq_norm = [_normalize_match_text(snip) for snip in all_missing_snippets]
             if hasattr(self.model, "encode"):
-                new_vecs = self.model.encode(uniq_norm, convert_to_numpy=True, normalize_embeddings=True)
+                new_vecs = self.model.encode(uniq_norm, convert_to_numpy=True, normalize_embeddings=True, show_progress_bar=False)
             else:
-                new_vecs = self.model.encode(uniq_norm)
+                new_vecs = self.model.encode(uniq_norm, show_progress_bar=False)
             total_encode_ms = _timing_ms(t0_encode_all)
             for snip, vec in zip(all_missing_snippets, new_vecs):
                 self._embed_cache[snip] = vec
@@ -681,6 +698,8 @@ class ContextualLLMPostFilter(Detector):
                 detected_by = "hyperscan:dn"
             elif key == "SN":
                 detected_by = "regex:sn"
+            elif key == "FN":
+                detected_by = "regex:fn"
             else:
                 detected_by = f"regex:{key.lower()}"
             type_cfg = self._get_type_cfg(key)
@@ -711,6 +730,7 @@ class ContextualLLMPostFilter(Detector):
                 label_patterns = [re.escape(str(x)) for x in indicators if str(x).strip()]
             label_res = self._get_label_res(key, label_patterns) if label_patterns else []
             label_window = int(hybrid.get("label_window", 12))
+            label_direction = str(hybrid.get("label_direction") or "both")
             label_weight = float(hybrid.get("label_weight", 0.3))
             table_header_enabled = bool(hybrid.get("table_header_enabled", True))
             table_header_line_fallback = bool(hybrid.get("table_header_line_fallback", True))
@@ -833,7 +853,7 @@ class ContextualLLMPostFilter(Detector):
                     it["context_force_pass_phrase"] = force_phrase
                     kept.append(it)
                     continue
-                if key == "SN" and rrn_foreigner_registration_candidate(str(it.get("matchString") or "")):
+                if key == "FN" and rrn_foreigner_registration_candidate(str(it.get("matchString") or "")):
                     foreigner_phrase = _find_matching_phrase(snippet, foreigner_context_phrases)
                     if foreigner_phrase:
                         it["context_pass"] = True
@@ -912,6 +932,7 @@ class ContextualLLMPostFilter(Detector):
                             match_str=str(it.get("matchString") or ""),
                             label_res=label_res,
                             label_window=label_window,
+                            label_direction=label_direction,
                             label_weight=label_weight,
                             header_hint=header_hint,
                             header_weight=table_header_weight,

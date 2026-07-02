@@ -32,7 +32,7 @@ def _trace_stage_enabled() -> bool:
 
 
 def _trace_timing_enabled() -> bool:
-    return _env_bool("PII_STAGE_TIMING_ENABLED", True)
+    return _env_bool("PII_STAGE_TIMING_ENABLED", False)
 
 
 def _trace_item_enabled() -> bool:
@@ -86,12 +86,14 @@ def _log_timing(stage: str, req_id: str | None = None, **fields: Any) -> None:
         ordered.append(("ms", fields.pop("ms")))
     ordered.extend((k, v) for k, v in fields.items())
     parts = [f"{k}={v}" for k, v in ordered]
-    logger.info("[timing] %s", " ".join(parts))
+    level_name = str(os.getenv("PII_STAGE_TIMING_LEVEL", "DEBUG")).strip().upper()
+    level = getattr(logging, level_name, logging.DEBUG)
+    logger.log(level, "[stage_timing] %s", " ".join(parts))
 
 
 def _summarize_counts(out: Dict[str, List[dict]]) -> Dict[str, int]:
     keys = [
-        "SN", "SSN", "DN", "PN", "MN", "BRN", "BN", "AN", "CN", "EML",
+        "SN", "FN", "SSN", "DN", "PN", "MN", "BRN", "BN", "AN", "CN", "EML",
         "SN_CTX_REJECTED", "SSN_CTX_REJECTED", "DN_CTX_REJECTED",
         "PN_CTX_REJECTED", "MN_CTX_REJECTED", "BRN_CTX_REJECTED", "BN_CTX_REJECTED", "AN_CTX_REJECTED", "CN_CTX_REJECTED", "EML_CTX_REJECTED",
     ]
@@ -328,6 +330,94 @@ def _cleanup_bn_ctx_rejected_overlap(out: Dict[str, List[dict]], bn_doc: Dict[st
         filtered.append(it)
 
     out["BN_CTX_REJECTED"] = _finalize(filtered)
+
+
+_CROSS_TYPE_OVERLAP_KEYS = [
+    "SN",
+    "FN",
+    "SSN",
+    "DN",
+    "PN",
+    "VN_PN",
+    "EML",
+    "CN",
+    "VN_MN",
+    "MN",
+    "VN_CCCD",
+    "VN_TIN",
+    "VN_SI",
+    "BRN",
+    "BN",
+    "AN",
+]
+
+_CROSS_TYPE_PRIORITY = {
+    key: len(_CROSS_TYPE_OVERLAP_KEYS) - idx for idx, key in enumerate(_CROSS_TYPE_OVERLAP_KEYS)
+}
+
+
+def _context_overlap_score(item: dict) -> Tuple[int, float]:
+    if not isinstance(item, dict):
+        return 0, 0.0
+    if item.get("context_pass") is False:
+        return 0, 0.0
+
+    score = 0.0
+    for key in ("context_hybrid_score", "context_score_norm", "context_score"):
+        val = item.get(key)
+        if isinstance(val, (int, float)):
+            score = max(score, float(val))
+
+    has_context_signal = (
+        item.get("context_pass") is True
+        or bool(item.get("context_accept_by"))
+        or score > 0.0
+    )
+    return (2 if has_context_signal else 1), score
+
+
+def _resolve_cross_type_overlaps(out: Dict[str, List[dict]]) -> None:
+    """Keep one accepted item for overlapping spans across PII types.
+
+    Priority is context evidence first, then wider span, then a conservative
+    type ordering that favors stricter identifiers over broad numeric patterns.
+    """
+    if not isinstance(out, dict):
+        return
+
+    candidates: List[Tuple[Tuple[int, float, int, int, int], str, dict]] = []
+    for key in _CROSS_TYPE_OVERLAP_KEYS:
+        items = out.get(key) or []
+        if not isinstance(items, list):
+            continue
+        type_priority = _CROSS_TYPE_PRIORITY.get(key, 0)
+        for idx, it in enumerate(items):
+            if not isinstance(it, dict):
+                continue
+            s = it.get("start")
+            e = it.get("end")
+            if not isinstance(s, int) or not isinstance(e, int) or e <= s:
+                continue
+            ctx_rank, ctx_score = _context_overlap_score(it)
+            quality = (ctx_rank, ctx_score, e - s, type_priority, -idx)
+            candidates.append((quality, key, it))
+
+    if not candidates:
+        return
+
+    selected: List[Tuple[int, int, str, dict]] = []
+    kept_by_key: Dict[str, List[dict]] = {key: [] for key in _CROSS_TYPE_OVERLAP_KEYS}
+    for _, key, it in sorted(candidates, key=lambda x: x[0], reverse=True):
+        s = it["start"]
+        e = it["end"]
+        if any(_overlaps(s, e, ss, ee) for ss, ee, _, _ in selected):
+            continue
+        selected.append((s, e, key, it))
+        kept_by_key.setdefault(key, []).append(it)
+
+    for key in _CROSS_TYPE_OVERLAP_KEYS:
+        if key in out:
+            out[key] = _finalize(kept_by_key.get(key, []))
 
 
 def _finalize(items: List[dict]) -> List[dict]:

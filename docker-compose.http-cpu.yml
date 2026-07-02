@@ -9,8 +9,6 @@ services:
       dockerfile: Dockerfile.http
       args:
         INSTALL_SEMANTIC: ${HTTP_INSTALL_SEMANTIC:-true}
-        TORCH_INSTALL_PACKAGE: ${TORCH_INSTALL_PACKAGE:-}
-        TORCH_EXTRA_INDEX_URL: ${TORCH_EXTRA_INDEX_URL:-}
     container_name: xcn-pii-api
     command: ["sh", "-c", "uvicorn app.main:app --host 0.0.0.0 --port 8000 --workers ${UVICORN_WORKERS:-1}"]
     ports:
@@ -30,7 +28,7 @@ services:
       - PII_FASTPATH_ENABLED=true
       - PII_FASTPATH_TEXT_LEN=50000
       - PII_FASTPATH_MAX_RESULTS_PER_TYPE=200
-      - PII_FASTPATH_TARGET_KEYS=SN,SSN,DN,PN,MN,BRN,AN,EML,CN
+      - PII_FASTPATH_TARGET_KEYS=SN,FN,SSN,DN,PN,MN,BRN,AN,EML,CN,VN_CCCD,VN_MN,VN_PN,VN_TIN,VN_SI
       - PII_HS_SN_ENABLED=true
       - PII_HS_DN_ENABLED=true
       - PII_HS_AN_ENABLED=false
@@ -43,7 +41,7 @@ services:
       - PII_CONTEXT_EMBED_MAX_CHARS=${PII_CONTEXT_EMBED_MAX_CHARS:-256}
       - PII_TRACE_DETECT=false
       - PII_TRACE_SLOW_MS=800
-      - PII_STAGE_TIMING_ENABLED=true
+      - PII_STAGE_TIMING_ENABLED=false
       - PII_STAGE_LOG_ENABLED=false
       - PII_STAGE_LOG_ITEMS=false
       - PII_STAGE_LOG_ITEM_LIMIT=100
@@ -52,23 +50,17 @@ services:
       - PII_LOG_DIR=/logs
       - PII_LOG_LEVEL=${PII_LOG_LEVEL:-INFO}
       - PII_LOG_BACKUP_DAYS=30
+      - PII_LOG_TIMEZONE=Asia/Seoul
+      - TZ=Asia/Seoul
       - HF_HOME=/data/hf
       - TRANSFORMERS_CACHE=/data/hf/transformers
       - SENTENCE_TRANSFORMERS_HOME=/data/hf/sentence_transformers
+      - PII_HF_OFFLINE=${PII_HF_OFFLINE:-true}
+      - HF_HUB_OFFLINE=${HF_HUB_OFFLINE:-1}
+      - TRANSFORMERS_OFFLINE=${TRANSFORMERS_OFFLINE:-1}
+      - HF_DATASETS_OFFLINE=${HF_DATASETS_OFFLINE:-1}
+      - HF_HUB_DISABLE_TELEMETRY=1
       - PII_EMBED_DEVICE=cpu
-      - PII_GUARDRAIL_ENABLED=false
-      - PII_GUARDRAIL_PROVIDER=${PII_GUARDRAIL_PROVIDER:-sguard}
-      - PII_GUARDRAIL_DEVICE=cpu
-      - PII_GUARDRAIL_MAX_CHARS=${PII_GUARDRAIL_MAX_CHARS:-4000}
-      - PII_GUARDRAIL_FAIL_OPEN=true
-      - PII_SGUARD_CONTENT_ENABLED=${PII_SGUARD_CONTENT_ENABLED:-true}
-      - PII_SGUARD_CONTENT_MODEL=${PII_SGUARD_CONTENT_MODEL:-SamsungSDS-Research/SGuard-ContentFilter-2B-v1}
-      - PII_SGUARD_CONTENT_THRESHOLDS=${PII_SGUARD_CONTENT_THRESHOLDS:-0.5,0.5,0.5,0.5,0.5}
-      - PII_SGUARD_JAILBREAK_ENABLED=${PII_SGUARD_JAILBREAK_ENABLED:-true}
-      - PII_SGUARD_JAILBREAK_MODEL=${PII_SGUARD_JAILBREAK_MODEL:-SamsungSDS-Research/SGuard-JailbreakFilter-2B-v1}
-      - PII_SGUARD_JAILBREAK_THRESHOLD=${PII_SGUARD_JAILBREAK_THRESHOLD:-0.6}
-      - NVIDIA_VISIBLE_DEVICES=void
-      - NVIDIA_DRIVER_CAPABILITIES=
     volumes:
       - hf_cache:/data/hf
       - ./data:/app/data

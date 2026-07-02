@@ -1,8 +1,6 @@
 FROM python:3.11-slim AS builder
 
 ARG INSTALL_SEMANTIC=true
-ARG TORCH_INSTALL_PACKAGE=
-ARG TORCH_EXTRA_INDEX_URL=
 
 WORKDIR /app
 
@@ -17,7 +15,6 @@ RUN apt-get update \
 
 COPY requirements-base.txt requirements-http.txt requirements-semantic.txt ./
 RUN pip install --no-cache-dir -r requirements-base.txt -r requirements-http.txt \
- && if [ -n "$TORCH_INSTALL_PACKAGE" ]; then pip install --no-cache-dir ${TORCH_EXTRA_INDEX_URL:+--extra-index-url "$TORCH_EXTRA_INDEX_URL"} "$TORCH_INSTALL_PACKAGE"; fi \
  && if [ "$INSTALL_SEMANTIC" = "true" ]; then pip install --no-cache-dir -r requirements-semantic.txt; fi \
  && pip install --no-cache-dir Cython
 
@@ -29,7 +26,6 @@ RUN python setup.py build_ext --inplace \
       ! -name 'grpc_server.py' \
       ! -name 'context_debug_api.py' \
       ! -name 'detection_exclusions.py' \
-      ! -name 'guardrail.py' \
       ! -name 'pii.py' \
       ! -name 'schemas.py' \
       ! -path '/app/app/proto/*' \
@@ -44,8 +40,6 @@ RUN python setup.py build_ext --inplace \
 FROM python:3.11-slim
 
 ARG INSTALL_SEMANTIC=true
-ARG TORCH_INSTALL_PACKAGE=
-ARG TORCH_EXTRA_INDEX_URL=
 
 WORKDIR /app
 
@@ -57,7 +51,6 @@ RUN apt-get update \
  && apt-get install -y --no-install-recommends ca-certificates build-essential cmake \
  && rm -rf /var/lib/apt/lists/* \
  && pip install --no-cache-dir -r requirements-base.txt -r requirements-http.txt \
- && if [ -n "$TORCH_INSTALL_PACKAGE" ]; then pip install --no-cache-dir ${TORCH_EXTRA_INDEX_URL:+--extra-index-url "$TORCH_EXTRA_INDEX_URL"} "$TORCH_INSTALL_PACKAGE"; fi \
  && if [ "$INSTALL_SEMANTIC" = "true" ]; then pip install --no-cache-dir -r requirements-semantic.txt; fi \
  && chmod +x /app/bin/xutf_8
 

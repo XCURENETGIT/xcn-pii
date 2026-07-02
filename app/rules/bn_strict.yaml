@@ -31,4 +31,5 @@ postfilter:
     - DN
     - PN
     - BRN
+    - CN
     - EML

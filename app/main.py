@@ -25,7 +25,6 @@ from app.pii_engine import preload_models
 from app.rules_loader import list_rulesets, load_rules
 from app.context_debug_api import router as debug_router
 from app.file_text_extract import TextExtractError, extract_text_from_file
-from app.guardrail import evaluate_guardrail
 from app.logging_utils import setup_file_logging
 from app.response_builders import build_detect_response
 from app.version import APP_VERSION
@@ -73,6 +72,11 @@ def _truncate_request_text(text: str, limit: int | None = None) -> str:
     if len(normalized) <= max_chars:
         return normalized
     return normalized[:max_chars] + "..."
+
+
+def _format_count_summary(found: dict) -> str:
+    keys = ("SN", "FN", "SSN", "DN", "PN", "MN", "BRN", "BN", "AN", "CN", "EML", "VN_CCCD", "VN_MN", "VN_PN", "VN_TIN", "VN_SI")
+    return " ".join(f"{key}={len(found.get(key, []) or [])}" for key in keys)
 
 
 def _grpc_channel(target: str, use_tls: bool):
@@ -156,9 +160,7 @@ def pii_detect(
     t0 = time.perf_counter()
     req_id = hashlib.md5(text.encode("utf-8", errors="ignore")).hexdigest()[:8] if text else "empty"
     logger.info(
-        "[request] /pii/detect\n"
-        "  req=%s chars=%d bytes=%d max_results_per_type=%d ruleset=%s\n"
-        "  text=%s",
+        "[request] api=http path=/pii/detect req=%s chars=%d bytes=%d max_results=%d ruleset=%s text=\"%s\"",
         req_id,
         len(text),
         len(text.encode("utf-8", errors="ignore")),
@@ -170,28 +172,16 @@ def pii_detect(
     t_detect = time.perf_counter()
     found, meta = detect_with_meta(text, max_results_per_type=req.max_results_per_type, ruleset=x_pii_ruleset)
     detect_ms = (time.perf_counter() - t_detect) * 1000.0
-    guardrail = evaluate_guardrail(text)
 
     total_ms = (time.perf_counter() - t0) * 1000.0
     logger.info(
-        "[timing] /pii/detect\n"
-        "  req=%s detect_ms=%.1f total_ms=%.1f\n"
-        "  kept: SN=%d SSN=%d DN=%d PN=%d MN=%d BRN=%d BN=%d AN=%d CN=%d EML=%d",
+        "[summary] api=http path=/pii/detect req=%s status=200 detect_ms=%.1f total_ms=%.1f counts=\"%s\"",
         req_id,
         detect_ms,
         total_ms,
-        len(found.get("SN", [])),
-        len(found.get("SSN", [])),
-        len(found.get("DN", [])),
-        len(found.get("PN", [])),
-        len(found.get("MN", [])),
-        len(found.get("BRN", [])),
-        len(found.get("BN", [])),
-        len(found.get("AN", [])),
-        len(found.get("CN", [])),
-        len(found.get("EML", [])),
+        _format_count_summary(found),
     )
-    return build_detect_response(found, meta, guardrail=guardrail)
+    return build_detect_response(found, meta)
 
 
 @app.post("/pii/detect/file", response_model=DetectPiiFileResponse, response_model_exclude_none=True)
@@ -257,8 +247,7 @@ async def pii_detect_file(
         _truncate_request_text(text),
     )
     found, meta = detect_with_meta(text, max_results_per_type=max_results_per_type, ruleset=x_pii_ruleset)
-    guardrail = evaluate_guardrail(text)
-    result = build_detect_response(found, meta, guardrail=guardrail)
+    result = build_detect_response(found, meta)
     return DetectPiiFileResponse(
         **result.model_dump(),
         filename=file.filename,
@@ -349,6 +338,7 @@ def pii_rulesets():
 def pii_selftest():
     sample = (
         "SN=900101-1234567 "
+        "FN=외국인등록번호 900101-5123450 "
         "DN=11-22-333333-44 "
         "PN=M12345678 "
         "MN=010-1234-5678 "
@@ -356,7 +346,12 @@ def pii_selftest():
         "AN=서울특별시 강남구 테헤란로 123 "
         "SSN=123-45-6789 "
         "EML=test.user+aa@company.co.kr "
-        "CN=4111-1111-1111-1111"
+        "CN=4111-1111-1111-1111 "
+        "VN_CCCD=079213456789 "
+        "VN_MN=0981234567 "
+        "VN_PN=B12345678 "
+        "VN_TIN=0312345678 "
+        "VN_SI=7938922623"
     )
     found = detect_all(sample, max_results_per_type=50)
     return {

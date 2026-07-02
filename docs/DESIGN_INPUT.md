@@ -18,9 +18,9 @@
 - long payload fast-path 처리
 - 파일 업로드 후 텍스트 추출 기반 탐지
 - 룰셋 hot reload 및 `default`/`strict` 룰셋 전환
-- CPU/GPU 실행 모드
+- CPU 전용 실행 모드
 - HTTPS reverse proxy 구성
-- gRPC direct/LB/Envoy 구성
+- gRPC direct/LB 구성
 
 ## 3. 주요 디렉터리
 
@@ -33,10 +33,8 @@
 | `app/rules/` | 룰셋 및 항목별 탐지 규칙 |
 | `app/proto/pii.proto` | gRPC 서비스 정의 |
 | `app/file_text_extract.py` | 파일 텍스트 추출 래퍼 |
-| `app/guardrail.py` | SGuard 기반 guardrail 옵션 |
 | `app/static/` | HTTP UI 정적 리소스 |
 | `infra/haproxy/` | gRPC HAProxy LB 설정 |
-| `infra/envoy/` | gRPC Envoy LB 설정 |
 | `infra/nginx/` | HTTPS proxy 설정 |
 | `scripts/` | 실행/종료/벤치마크 스크립트 |
 | `docs/` | API, 명령어, 설계 관련 문서 |
@@ -113,13 +111,23 @@ HTTPS는 FastAPI 직접 TLS가 아니라 Nginx reverse proxy에서 TLS를 종료
 | 타입 | 의미 |
 | --- | --- |
 | `SN` | 주민등록번호 |
+| `FN` | 외국인등록번호 |
 | `SSN` | Social Security Number |
 | `DN` | 운전면허번호 |
 | `PN` | 여권번호 |
 | `MN` | 휴대전화/전화번호 |
+| `BRN` | 사업자등록번호 |
 | `BN` | 계좌번호/은행 관련 번호 |
+| `AN` | 주소 |
 | `CN` | 카드번호 |
 | `EML` | 이메일 |
+| `VN_CCCD` | 베트남 시민신분증/개인식별번호 |
+| `VN_MN` | 베트남 휴대폰번호 |
+| `VN_PN` | 베트남 여권번호 |
+| `VN_TIN` | 베트남 세금번호/납세자번호 |
+| `VN_SI` | 베트남 사회보험/건강보험 코드 |
+
+외국인등록번호(`FN`)는 주민등록번호와 같은 13자리 구조를 사용하지만 뒤 7자리 첫 숫자가 `5`, `6`, `7`, `8`인 후보를 별도 타입으로 분리한다. 베트남 전용 타입은 베트남어 성조 포함 라벨, 성조 제거 라벨, 영문 라벨, 한국어 운영 라벨을 문맥 근거로 사용한다. `VN_TIN`, `VN_SI`는 10자리 숫자 오탐을 줄이기 위해 후보 앞쪽의 세금/보험 라벨을 우선적으로 요구한다.
 
 ## 6. 탐지 엔진 구조
 
@@ -170,7 +178,7 @@ HTTPS는 FastAPI 직접 TLS가 아니라 Nginx reverse proxy에서 TLS를 종료
 | `PII_FASTPATH_ENABLED` | `true` | fast-path 사용 여부 |
 | `PII_FASTPATH_TEXT_LEN` | `50000` | fast-path 시작 길이 |
 | `PII_FASTPATH_MAX_RESULTS_PER_TYPE` | `200` | 타입별 결과 제한 |
-| `PII_FASTPATH_TARGET_KEYS` | `SN,SSN,DN,PN,MN,EML,CN` | fast-path 대상 타입 |
+| `PII_FASTPATH_TARGET_KEYS` | `SN,FN,SSN,DN,PN,MN,BRN,AN,EML,CN,VN_CCCD,VN_MN,VN_PN,VN_TIN,VN_SI` | fast-path 대상 타입 |
 
 ## 7. 룰셋
 
@@ -230,7 +238,7 @@ SSN -> sn -> dn -> pn -> EML -> cn -> mn -> bn -> post_mn -> post_bn
 - model: `sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2`
 - global threshold: `0.55`
 - window sentences: `2`
-- default target keys: `SN`, `SSN`, `DN`, `PN`, `BN`, `CN`
+- default target keys: `SN`, `FN`, `SSN`, `DN`, `PN`, `BRN`, `BN`, `CN`, `VN_CCCD`, `VN_MN`, `VN_PN`, `VN_TIN`, `VN_SI`
 - hybrid scoring enabled
 
 문맥 필터는 semantic similarity와 label/header/repeat/digit hint를 조합해 오탐을 줄인다.
@@ -251,22 +259,9 @@ SSN -> sn -> dn -> pn -> EML -> cn -> mn -> bn -> post_mn -> post_bn
 | `XUTF8_BINARY_PATH` | `/app/bin/xutf_8` | 텍스트 추출 바이너리 경로 |
 | `XUTF8_TIMEOUT_SEC` | `60` | 추출 timeout |
 
-## 11. Guardrail
+## 11. 배포 구성
 
-`app/guardrail.py`는 SGuard 기반 안전성 평가를 옵션으로 제공한다.
-
-기본값:
-
-- `PII_GUARDRAIL_ENABLED=false`
-- provider: `sguard`
-- device: `cuda`
-- fail open: `true`
-
-CPU HTTP 운영 모드에서는 guardrail을 비활성화하고 device를 CPU로 강제한다.
-
-## 12. 배포 구성
-
-### 12.1 HTTP
+### 11.1 HTTP
 
 파일:
 
@@ -279,7 +274,7 @@ CPU HTTP 운영 모드에서는 guardrail을 비활성화하고 device를 CPU로
 - host port: `8005`
 - container port: `8000`
 
-### 12.2 HTTP CPU
+### 11.2 HTTP CPU
 
 파일:
 
@@ -290,11 +285,8 @@ CPU HTTP 운영 모드에서는 guardrail을 비활성화하고 device를 CPU로
 특징:
 
 - `PII_EMBED_DEVICE=cpu`
-- `PII_GUARDRAIL_ENABLED=false`
-- `NVIDIA_VISIBLE_DEVICES=void`
-- GPU reservation 없음
 
-### 12.3 HTTPS
+### 11.3 HTTPS
 
 파일:
 
@@ -323,14 +315,12 @@ CPU HTTP 운영 모드에서는 guardrail을 비활성화하고 device를 CPU로
 - `docker-compose.yml`
 - `docker-compose.direct.yml`
 - `infra/haproxy/grpc-lb.cfg`
-- `infra/envoy/grpc-lb.yaml`
 
 모드:
 
 - direct: `50051`
 - HAProxy LB: `50055`
-- Envoy LB: `50055`
-- CPU/GPU 스크립트 제공
+- CPU 전용 스크립트 제공
 
 ## 13. 실행 스크립트
 
@@ -352,10 +342,7 @@ CPU HTTP 운영 모드에서는 guardrail을 비활성화하고 device를 CPU로
 | `start_http_cpu_https_only_scale_3.sh` | HTTP CPU HTTPS 전용 3개 수평확장 실행 |
 | `stop_http_cpu_https_only_scale.sh` | HTTP CPU HTTPS 전용 수평확장 종료 |
 | `start_grpc_direct.sh` | gRPC direct CPU 실행 |
-| `start_grpc_gpu_direct.sh` | gRPC direct GPU 실행 |
 | `start_grpc_lb_3.sh` | gRPC HAProxy LB CPU 3 replica 실행 |
-| `start_grpc_gpu_lb_3.sh` | gRPC HAProxy LB GPU 3 replica 실행 |
-| `start_grpc_envoy_3.sh` | gRPC Envoy LB 3 replica 실행 |
 | `grpc_benchmark.py` | gRPC 성능 측정 |
 
 ## 14. 로깅 및 관측
@@ -400,7 +387,6 @@ CPU HTTP 운영 모드에서는 guardrail을 비활성화하고 device를 CPU로
 - `certs/`는 `.gitignore` 처리
 - 공개 API 자체 인증은 없음
 - 외부 공개 시 API Gateway, WAF, mTLS, 사설망 제한 권장
-- guardrail은 옵션이며 기본 비활성화
 
 ## 17. 설계서 작성 시 포함해야 할 항목
 

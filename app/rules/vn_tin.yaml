@@ -1,0 +1,16 @@
+# Vietnam tax identification number (Ma so thue).
+
+enabled: true
+
+patterns:
+  - name: vietnam_tax_identification_number
+    # Business/organization tax code: 10 digits. Branch/dependent unit tax code:
+    # parent 10-digit code plus a 3-digit suffix, commonly written with "-".
+    expr: '[0-9]{10}(?:[-.\s]?[0-9]{3})?'
+    regex: '(?<!\d)[0-9]{10}(?:[-.\s]?[0-9]{3})?(?!\d)'
+    verify_regex: '(?<!\d)[0-9]{10}(?:[-.\s]?[0-9]{3})?(?!\d)'
+    flags:
+      utf8: false
+      ucp: false
+
+max_match_len: 16

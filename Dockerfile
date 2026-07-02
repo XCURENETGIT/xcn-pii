@@ -26,7 +26,6 @@ RUN python setup.py build_ext --inplace \
       ! -name 'grpc_server.py' \
       ! -name 'context_debug_api.py' \
       ! -name 'detection_exclusions.py' \
-      ! -name 'guardrail.py' \
       ! -name 'pii.py' \
       ! -name 'schemas.py' \
       ! -path '/app/app/proto/*' \

@@ -36,7 +36,10 @@ async def debug_context(req: DebugRequest):
     # Create a DetectContext wrapper so we can run post-filter and capture debug
     ctx = DetectContext(text=text, source_text=text, max_results=500, out=found, request_id=_request_id(text))
 
-    target_keys = req.target_keys or ["SN", "SSN", "DN", "PN", "MN", "BN", "CN", "EML"]
+    target_keys = req.target_keys or [
+        "SN", "FN", "SSN", "DN", "PN", "MN", "BN", "CN", "EML",
+        "VN_CCCD", "VN_MN", "VN_PN", "VN_TIN", "VN_SI",
+    ]
 
     if (req.method or "embed").lower() in ("embed", "semantic"):
         filt = ContextualLLMPostFilter(enabled=True, target_keys=target_keys, window_sentences=req.window_sentences, sim_threshold=req.sim_threshold, model_name=req.model_name, debug=True)

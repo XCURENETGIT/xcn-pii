@@ -14,7 +14,6 @@ EXCLUDED_FILES = {
     "grpc_server.py",
     "context_debug_api.py",
     "detection_exclusions.py",
-    "guardrail.py",
     "pii.py",
     "schemas.py",
 }

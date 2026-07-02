@@ -9,8 +9,6 @@ services:
       dockerfile: Dockerfile.http
       args:
         INSTALL_SEMANTIC: ${HTTP_INSTALL_SEMANTIC:-true}
-        TORCH_INSTALL_PACKAGE: ${TORCH_INSTALL_PACKAGE:-}
-        TORCH_EXTRA_INDEX_URL: ${TORCH_EXTRA_INDEX_URL:-}
     container_name: xcn-pii-api
     command: ["sh", "-c", "uvicorn app.main:app --host 0.0.0.0 --port 8000 --workers ${UVICORN_WORKERS:-1}"]
     ports:
@@ -30,7 +28,7 @@ services:
       - PII_FASTPATH_ENABLED=true
       - PII_FASTPATH_TEXT_LEN=50000
       - PII_FASTPATH_MAX_RESULTS_PER_TYPE=200
-      - PII_FASTPATH_TARGET_KEYS=SN,SSN,DN,PN,MN,BRN,AN,EML,CN
+      - PII_FASTPATH_TARGET_KEYS=SN,FN,SSN,DN,PN,MN,BRN,AN,EML,CN,VN_CCCD,VN_MN,VN_PN,VN_TIN,VN_SI
       - PII_HS_SN_ENABLED=true
       - PII_HS_DN_ENABLED=true
       - PII_HS_AN_ENABLED=false
@@ -55,30 +53,10 @@ services:
       - HF_HOME=/data/hf
       - TRANSFORMERS_CACHE=/data/hf/transformers
       - SENTENCE_TRANSFORMERS_HOME=/data/hf/sentence_transformers
-      - PII_EMBED_DEVICE=${PII_EMBED_DEVICE:-auto}
-      - PII_GUARDRAIL_ENABLED=${PII_GUARDRAIL_ENABLED:-false}
-      - PII_GUARDRAIL_PROVIDER=${PII_GUARDRAIL_PROVIDER:-sguard}
-      - PII_GUARDRAIL_DEVICE=${PII_GUARDRAIL_DEVICE:-cuda}
-      - PII_GUARDRAIL_MAX_CHARS=${PII_GUARDRAIL_MAX_CHARS:-4000}
-      - PII_GUARDRAIL_FAIL_OPEN=${PII_GUARDRAIL_FAIL_OPEN:-true}
-      - PII_SGUARD_CONTENT_ENABLED=${PII_SGUARD_CONTENT_ENABLED:-true}
-      - PII_SGUARD_CONTENT_MODEL=${PII_SGUARD_CONTENT_MODEL:-SamsungSDS-Research/SGuard-ContentFilter-2B-v1}
-      - PII_SGUARD_CONTENT_THRESHOLDS=${PII_SGUARD_CONTENT_THRESHOLDS:-0.5,0.5,0.5,0.5,0.5}
-      - PII_SGUARD_JAILBREAK_ENABLED=${PII_SGUARD_JAILBREAK_ENABLED:-true}
-      - PII_SGUARD_JAILBREAK_MODEL=${PII_SGUARD_JAILBREAK_MODEL:-SamsungSDS-Research/SGuard-JailbreakFilter-2B-v1}
-      - PII_SGUARD_JAILBREAK_THRESHOLD=${PII_SGUARD_JAILBREAK_THRESHOLD:-0.6}
-      - NVIDIA_VISIBLE_DEVICES=${NVIDIA_VISIBLE_DEVICES:-all}
-      - NVIDIA_DRIVER_CAPABILITIES=${NVIDIA_DRIVER_CAPABILITIES:-compute,utility}
+      - PII_EMBED_DEVICE=cpu
     volumes:
       - hf_cache:/data/hf
       - ./logs:/logs
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - driver: nvidia
-              count: ${PII_GPU_COUNT:-all}
-              capabilities: [gpu]
     restart: unless-stopped
   api-grpc:
     profiles: ["grpc"]
@@ -88,8 +66,6 @@ services:
       dockerfile: Dockerfile.grpc
       args:
         INSTALL_SEMANTIC: ${GRPC_INSTALL_SEMANTIC:-true}
-        TORCH_INSTALL_PACKAGE: ${TORCH_INSTALL_PACKAGE:-}
-        TORCH_EXTRA_INDEX_URL: ${TORCH_EXTRA_INDEX_URL:-}
     command: ["python", "-m", "app.grpc_server"]
     expose:
       - "50051"
@@ -114,7 +90,7 @@ services:
       - PII_FASTPATH_ENABLED=true
       - PII_FASTPATH_TEXT_LEN=50000
       - PII_FASTPATH_MAX_RESULTS_PER_TYPE=200
-      - PII_FASTPATH_TARGET_KEYS=SN,SSN,DN,PN,MN,BRN,AN,EML,CN
+      - PII_FASTPATH_TARGET_KEYS=SN,FN,SSN,DN,PN,MN,BRN,AN,EML,CN,VN_CCCD,VN_MN,VN_PN,VN_TIN,VN_SI
       - PII_HS_SN_ENABLED=true
       - PII_HS_DN_ENABLED=true
       - PII_HS_AN_ENABLED=false
@@ -140,30 +116,10 @@ services:
       - HF_HOME=/data/hf
       - TRANSFORMERS_CACHE=/data/hf/transformers
       - SENTENCE_TRANSFORMERS_HOME=/data/hf/sentence_transformers
-      - PII_EMBED_DEVICE=${PII_EMBED_DEVICE:-auto}
-      - PII_GUARDRAIL_ENABLED=${PII_GUARDRAIL_ENABLED:-false}
-      - PII_GUARDRAIL_PROVIDER=${PII_GUARDRAIL_PROVIDER:-sguard}
-      - PII_GUARDRAIL_DEVICE=${PII_GUARDRAIL_DEVICE:-cuda}
-      - PII_GUARDRAIL_MAX_CHARS=${PII_GUARDRAIL_MAX_CHARS:-4000}
-      - PII_GUARDRAIL_FAIL_OPEN=${PII_GUARDRAIL_FAIL_OPEN:-true}
-      - PII_SGUARD_CONTENT_ENABLED=${PII_SGUARD_CONTENT_ENABLED:-true}
-      - PII_SGUARD_CONTENT_MODEL=${PII_SGUARD_CONTENT_MODEL:-SamsungSDS-Research/SGuard-ContentFilter-2B-v1}
-      - PII_SGUARD_CONTENT_THRESHOLDS=${PII_SGUARD_CONTENT_THRESHOLDS:-0.5,0.5,0.5,0.5,0.5}
-      - PII_SGUARD_JAILBREAK_ENABLED=${PII_SGUARD_JAILBREAK_ENABLED:-true}
-      - PII_SGUARD_JAILBREAK_MODEL=${PII_SGUARD_JAILBREAK_MODEL:-SamsungSDS-Research/SGuard-JailbreakFilter-2B-v1}
-      - PII_SGUARD_JAILBREAK_THRESHOLD=${PII_SGUARD_JAILBREAK_THRESHOLD:-0.6}
-      - NVIDIA_VISIBLE_DEVICES=${NVIDIA_VISIBLE_DEVICES:-all}
-      - NVIDIA_DRIVER_CAPABILITIES=${NVIDIA_DRIVER_CAPABILITIES:-compute,utility}
+      - PII_EMBED_DEVICE=cpu
     volumes:
       - hf_cache:/data/hf
       - ./logs:/logs
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - driver: nvidia
-              count: ${PII_GPU_COUNT:-all}
-              capabilities: [gpu]
     restart: unless-stopped
   api-grpc-lb:
     profiles: ["grpc"]
@@ -175,18 +131,6 @@ services:
       - "50055:50051"
     volumes:
       - ./infra/haproxy/grpc-lb.cfg:/usr/local/etc/haproxy/haproxy.cfg:ro
-    restart: unless-stopped
-  api-grpc-envoy:
-    profiles: ["grpc"]
-    image: envoyproxy/envoy:v1.33.0
-    container_name: xcn-pii-grpc-envoy
-    depends_on:
-      - api-grpc
-    ports:
-      - "50055:50051"
-    volumes:
-      - ./infra/envoy/grpc-lb.yaml:/etc/envoy/envoy.yaml:ro
-    command: ["envoy", "-c", "/etc/envoy/envoy.yaml", "--log-level", "warning"]
     restart: unless-stopped
 volumes:
   hf_cache:

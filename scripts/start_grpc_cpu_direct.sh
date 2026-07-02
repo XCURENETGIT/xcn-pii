@@ -17,12 +17,6 @@ export PII_GRPC_MAX_WORKERS="${GRPC_WORKERS}"
 export PII_HS_COMBINED_ENABLED="${PII_HS_COMBINED_ENABLED:-true}"
 export PII_CONTEXT_EMBED_MAX_CHARS="${PII_CONTEXT_EMBED_MAX_CHARS:-256}"
 export PII_EMBED_DEVICE=cpu
-export PII_GUARDRAIL_DEVICE=cpu
-export NVIDIA_VISIBLE_DEVICES=void
-export NVIDIA_DRIVER_CAPABILITIES=
-export TORCH_INSTALL_PACKAGE="${TORCH_INSTALL_PACKAGE:-torch==2.11.0+cpu}"
-export TORCH_INDEX_URL="${TORCH_INDEX_URL:-https://download.pytorch.org/whl/cpu}"
-export TORCH_EXTRA_INDEX_URL="${TORCH_EXTRA_INDEX_URL:-https://pypi.org/simple}"
 
 echo "Starting gRPC CPU direct mode with 1 replica, ${GRPC_WORKERS} worker(s)"
 docker compose --profile grpc stop api-grpc-lb api-grpc >/dev/null 2>&1 || true

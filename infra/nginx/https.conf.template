@@ -2,7 +2,7 @@ resolver 127.0.0.11 ipv6=off valid=10s;
 
 upstream pii_http_backend {
     zone pii_http_backend 64k;
-    server api:8000 resolve;
+    server ${PII_HTTPS_BACKEND_HOST}:8000 resolve;
     keepalive 64;
 }
 

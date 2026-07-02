@@ -1,0 +1,59 @@
+{
+  "description": "Vietnam PII true-positive detection sample. The text includes Vietnamese context labels so VN_CCCD, VN_MN, VN_PN, VN_TIN, and VN_SI should pass contextual filtering.",
+  "request": {
+    "text": "Hồ sơ khách hàng Việt Nam\nSố căn cước công dân: 079213456789\nSố điện thoại: 0981234567\nSố hộ chiếu: B12345678\nMã số thuế: 0312345678\nMã số BHXH: 7938922623\n\nThông tin liên hệ bổ sung\nCCCD: 001199123456\nSĐT: 0321234567\nSố điện thoại Wintel: 0551234567\nSố điện thoại Indochina Telecom: 0871234567\nPassport No: D87654321\nTax code: 0101243150-001\nSố thẻ BHYT: 0123456789\n\nBảng kiểm tra\nHọ tên | CCCD | Số điện thoại | Hộ chiếu\nNguyen Van A | 024188654321 | 0912345678 | S11223344\nTran Thi B | 079200987654 | 0887654321 | B99887766",
+    "max_results_per_type": 50
+  },
+  "expected": {
+    "VN_CCCD_CNT": 4,
+    "VN_CCCD": [
+      "079213456789",
+      "001199123456",
+      "024188654321",
+      "079200987654"
+    ],
+    "VN_MN_CNT": 6,
+    "VN_MN": [
+      "0981234567",
+      "0321234567",
+      "0551234567",
+      "0871234567",
+      "0912345678",
+      "0887654321"
+    ],
+    "VN_PN_CNT": 4,
+    "VN_PN": [
+      "B12345678",
+      "D87654321",
+      "S11223344",
+      "B99887766"
+    ],
+    "VN_TIN_CNT": 2,
+    "VN_TIN": [
+      "0312345678",
+      "0101243150-001"
+    ],
+    "VN_SI_CNT": 2,
+    "VN_SI": [
+      "7938922623",
+      "0123456789"
+    ]
+  },
+  "http_example": {
+    "method": "POST",
+    "url": "http://10.100.40.52:8006/pii/detect",
+    "body": {
+      "text": "same as request.text",
+      "max_results_per_type": 50
+    }
+  },
+  "grpc_example": {
+    "target": "10.100.40.52:50055",
+    "service": "xcn.pii.v1.PiiDetector",
+    "method": "Detect",
+    "request": {
+      "text": "same as request.text",
+      "max_results_per_type": 50
+    }
+  }
+}
