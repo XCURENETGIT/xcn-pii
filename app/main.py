@@ -75,7 +75,7 @@ def _truncate_request_text(text: str, limit: int | None = None) -> str:
 
 
 def _format_count_summary(found: dict) -> str:
-    keys = ("SN", "FN", "SSN", "DN", "PN", "MN", "BRN", "BN", "AN", "CN", "EML", "VN_CCCD", "VN_MN", "VN_PN", "VN_TIN", "VN_SI")
+    keys = ("SN", "FN", "SSN", "DN", "PN", "MN", "BRN", "BN", "AN", "CN", "CPN", "CRN", "IMEI", "MCN", "EML", "VN_CCCD", "VN_MN", "VN_PN", "VN_TIN", "VN_SI")
     return " ".join(f"{key}={len(found.get(key, []) or [])}" for key in keys)
 
 
@@ -347,6 +347,10 @@ def pii_selftest():
         "SSN=123-45-6789 "
         "EML=test.user+aa@company.co.kr "
         "CN=4111-1111-1111-1111 "
+        "CPN=110111-1234569 "
+        "CRN=123가 4567 "
+        "IMEI=490154203237518 "
+        "MCN=AA:BB:CC:DD:EE:FF "
         "VN_CCCD=079213456789 "
         "VN_MN=0981234567 "
         "VN_PN=B12345678 "

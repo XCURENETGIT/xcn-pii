@@ -14,11 +14,15 @@ EXCLUDED_FILES = {
     "grpc_server.py",
     "context_debug_api.py",
     "detection_exclusions.py",
+    "logging_utils.py",
     "pii.py",
+    "response_builders.py",
+    "rules_loader.py",
     "schemas.py",
 }
 
 EXCLUDED_DIRS = {
+    "pii_engine",
     "proto",
     "rules",
     "static",

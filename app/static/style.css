@@ -235,6 +235,10 @@ mark.pii-EML { background: #fbcfe8; }
 mark.pii-AN { background: #c7d2fe; }
 mark.pii-BRN { background: #bae6fd; color: #0c4a6e; }
 mark.pii-BN { background: #fde68a; color: #78350f; }
+mark.pii-CPN { background: #dcfce7; color: #14532d; }
+mark.pii-CRN { background: #fef3c7; color: #78350f; }
+mark.pii-IMEI { background: #e0e7ff; color: #312e81; }
+mark.pii-MCN { background: #ccfbf1; color: #134e4a; }
 mark.pii-VN_CCCD { background: #bfdbfe; color: #1e3a8a; }
 mark.pii-VN_MN { background: #bbf7d0; color: #14532d; }
 mark.pii-VN_PN { background: #ddd6fe; color: #4c1d95; }

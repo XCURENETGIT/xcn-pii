@@ -20,6 +20,10 @@ context:
     - BRN
     - BN
     - CN
+    - CPN
+    - CRN
+    - IMEI
+    - MCN
     - VN_CCCD
     - VN_MN
     - VN_PN
@@ -410,6 +414,201 @@ context:
         digit_weight: 0.1
         label_patterns:
           - "(?i)카드\\s*(?:번호|no\\.?|#)?|신용\\s*카드\\s*(?:번호)?|체크\\s*카드\\s*(?:번호)?|결제\\s*카드|법인\\s*카드|credit\\s+card\\s*(?:number)?|debit\\s+card\\s*(?:number)?|card\\s*(?:number|no\\.?|#)|cc\\s+number|\\bCN\\b"
+    CPN:
+      sim_threshold: 0.05
+      window_sentences: 1
+      embed_max_chars: 160
+      indicator_phrases:
+        - "법인등록번호"
+        - "법인 등록 번호"
+        - "법인 등록번호"
+        - "법인번호"
+        - "법인 번호"
+        - "법인등기번호"
+        - "법인 등기 번호"
+        - "법인 등기번호"
+        - "등기등록번호"
+        - "등기 등록 번호"
+        - "회사등록번호"
+        - "회사 등록 번호"
+        - "상업등기번호"
+        - "상업 등기 번호"
+        - "등기부등본"
+        - "법인등기부"
+        - "법인 인감증명서"
+        - "corporate reg no"
+        - "corporate reg number"
+        - "corporate registration number"
+        - "corporate registry number"
+        - "corporation reg no"
+        - "corporation reg number"
+        - "corporation registration number"
+        - "company reg no"
+        - "company reg number"
+        - "company registration number"
+        - "company registry number"
+        - "registration certificate"
+        - "registry number"
+        - "cpn"
+      non_pii_phrases:
+        - "예시 법인등록번호"
+        - "샘플 법인등록번호"
+        - "테스트 법인등록번호"
+        - "sample cpn"
+        - "test cpn"
+      hybrid:
+        enabled: true
+        accept_threshold: 0.25
+        label_window: 48
+        label_weight: 0.55
+        digit_weight: 0.1
+        label_patterns:
+          - "(?i)법인\\s*(?:등록|등기)\\s*번호|법인\\s*번호|등기\\s*등록\\s*번호|회사\\s*등록\\s*번호|상업\\s*등기\\s*번호|법인\\s*(?:등기부|인감증명서)|등기부\\s*등본|corporate\\s+(?:reg(?:istration)?|registry)\\s*(?:number|no\\.?|num)?|corporation\\s+(?:reg(?:istration)?|registry)\\s*(?:number|no\\.?|num)?|company\\s+(?:reg(?:istration)?|registry)\\s*(?:number|no\\.?|num)?|registration\\s+certificate|registry\\s*(?:number|no\\.?|num)?|\\bCPN\\b"
+    CRN:
+      sim_threshold: 0.05
+      window_sentences: 1
+      embed_max_chars: 160
+      indicator_phrases:
+        - "자동차등록번호"
+        - "자동차 등록 번호"
+        - "자동차 등록번호"
+        - "차량번호"
+        - "차량 번호"
+        - "차량 등록 번호"
+        - "차량등록번호"
+        - "차량 등록번호"
+        - "자동차 번호판"
+        - "차량 번호판"
+        - "번호판"
+        - "등록번호판"
+        - "자동차등록증"
+        - "자동차 등록증"
+        - "차량등록증"
+        - "차량 등록증"
+        - "차번"
+        - "차량 식별"
+        - "운행 차량"
+        - "license plate"
+        - "licence plate"
+        - "plate number"
+        - "vehicle number"
+        - "vehicle registration number"
+        - "vehicle reg no"
+        - "vehicle reg number"
+        - "car registration number"
+        - "car reg no"
+        - "car reg number"
+        - "registration plate"
+        - "crn"
+      non_pii_phrases:
+        - "예시 차량번호"
+        - "샘플 차량번호"
+        - "테스트 차량번호"
+        - "sample crn"
+        - "test crn"
+      hybrid:
+        enabled: true
+        accept_threshold: 0.25
+        label_window: 48
+        label_weight: 0.55
+        digit_weight: 0.1
+        label_patterns:
+          - "(?i)자동차\\s*등록\\s*(?:증|번호)|차량\\s*(?:등록\\s*)?(?:증|번호)|자동차\\s*번호판|차량\\s*번호판|등록\\s*번호판|번호판|차번|차량\\s*식별|운행\\s*차량|licen[cs]e\\s+plate|plate\\s*(?:number|no\\.?)?|vehicle\\s*(?:number|no\\.?|reg(?:istration)?\\s*(?:number|no\\.?|num)?)|car\\s+reg(?:istration)?\\s*(?:number|no\\.?|num)?|registration\\s+plate|\\bCRN\\b"
+    IMEI:
+      sim_threshold: 0.05
+      window_sentences: 1
+      embed_max_chars: 160
+      indicator_phrases:
+        - "IMEI"
+        - "단말기 식별번호"
+        - "단말기식별번호"
+        - "단말식별번호"
+        - "단말 식별 번호"
+        - "휴대폰 식별번호"
+        - "휴대폰식별번호"
+        - "기기식별번호"
+        - "기기 식별 번호"
+        - "장비식별번호"
+        - "장비 식별 번호"
+        - "디바이스 식별번호"
+        - "디바이스 식별 번호"
+        - "모바일 장비 식별번호"
+        - "이동단말 식별번호"
+        - "이동 단말 식별 번호"
+        - "단말기 고유번호"
+        - "휴대폰 고유번호"
+        - "휴대폰 일련번호"
+        - "단말 일련번호"
+        - "device id"
+        - "device identifier"
+        - "equipment identity"
+        - "mobile equipment id"
+        - "mobile equipment identity"
+        - "international mobile equipment identity"
+        - "device imei"
+      non_pii_phrases:
+        - "sample imei"
+        - "test imei"
+      hybrid:
+        enabled: true
+        accept_threshold: 0.25
+        label_window: 48
+        label_weight: 0.55
+        digit_weight: 0.1
+        label_patterns:
+          - "(?i)\\bIMEI\\b|(?:단말기?|휴대폰|기기|장비|디바이스|이동\\s*단말)\\s*(?:식별|고유|일련)\\s*번호|모바일\\s*장비\\s*식별\\s*번호|device\\s*(?:id|identifier|imei)|equipment\\s+identity|mobile\\s+equipment\\s*(?:id|identity)|international\\s+mobile\\s+equipment\\s+identity"
+    MCN:
+      sim_threshold: 0.05
+      window_sentences: 1
+      embed_max_chars: 160
+      indicator_phrases:
+        - "MAC 주소"
+        - "MAC주소"
+        - "맥 주소"
+        - "물리주소"
+        - "물리 주소"
+        - "물리적 주소"
+        - "네트워크 주소"
+        - "랜카드 주소"
+        - "랜 카드 주소"
+        - "어댑터 주소"
+        - "네트워크 어댑터"
+        - "네트워크 인터페이스"
+        - "인터페이스 주소"
+        - "장비 MAC"
+        - "단말 MAC"
+        - "단말기 MAC"
+        - "와이파이 MAC"
+        - "무선 MAC"
+        - "유선 MAC"
+        - "BSSID"
+        - "SSID MAC"
+        - "mac address"
+        - "physical address"
+        - "network address"
+        - "adapter address"
+        - "network adapter"
+        - "network interface"
+        - "interface address"
+        - "wifi mac"
+        - "wi-fi mac"
+        - "ethernet mac"
+        - "device mac"
+        - "media access control"
+        - "mcn"
+      non_pii_phrases:
+        - "sample mac"
+        - "test mac"
+        - "sample mcn"
+        - "test mcn"
+      hybrid:
+        enabled: true
+        accept_threshold: 0.25
+        label_window: 48
+        label_weight: 0.55
+        digit_weight: 0.0
+        label_patterns:
+          - "(?i)MAC\\s*(?:주소|address)|맥\\s*주소|물리(?:적)?\\s*주소|네트워크\\s*(?:주소|어댑터|인터페이스)|랜\\s*카드\\s*주소|어댑터\\s*주소|인터페이스\\s*주소|(?:장비|단말기?|와이파이|무선|유선)\\s*MAC|\\bBSSID\\b|SSID\\s*MAC|physical\\s+address|network\\s*(?:address|adapter|interface)|adapter\\s+address|interface\\s+address|wi-?fi\\s+mac|ethernet\\s+mac|device\\s+mac|media\\s+access\\s+control|\\bMCN\\b"
     EML:
       sim_threshold: 0.05
       window_sentences: 1

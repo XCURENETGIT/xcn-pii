@@ -1,0 +1,7 @@
+enabled: true
+max_match_len: 20
+patterns:
+  - name: kr_corporate_registration_number
+    expr: "\\d{13}|\\d{6}[-\\s]?\\d{7}|\\d{4}[-\\s]?\\d{2}[-\\s]?\\d{6}[-\\s]?\\d"
+    verify_regex: "(?<!\\d)(?:\\d{13}|\\d{6}[-\\s]?\\d{7}|\\d{4}[-\\s]?\\d{2}[-\\s]?\\d{6}[-\\s]?\\d)(?!\\d)"
+    regex: "(?<!\\d)(?:\\d{13}|\\d{6}[-\\s]?\\d{7}|\\d{4}[-\\s]?\\d{2}[-\\s]?\\d{6}[-\\s]?\\d)(?!\\d)"

@@ -24,8 +24,12 @@ RUN python setup.py build_ext --inplace \
       ! -name 'grpc_server.py' \
       ! -name 'context_debug_api.py' \
       ! -name 'detection_exclusions.py' \
+      ! -name 'logging_utils.py' \
       ! -name 'pii.py' \
+      ! -name 'response_builders.py' \
+      ! -name 'rules_loader.py' \
       ! -name 'schemas.py' \
+      ! -path '/app/app/pii_engine/*' \
       ! -path '/app/app/proto/*' \
       ! -path '/app/app/rules/*' \
       ! -path '/app/app/static/*' \

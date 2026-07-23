@@ -1,0 +1,7 @@
+enabled: true
+max_match_len: 24
+patterns:
+  - name: mac_address_colon_dash_dot
+    expr: "(?:[A-Fa-f0-9]{2}[:-]){5}[A-Fa-f0-9]{2}|[A-Fa-f0-9]{4}\\.[A-Fa-f0-9]{4}\\.[A-Fa-f0-9]{4}"
+    verify_regex: "(?<![A-Fa-f0-9])(?:(?:[A-Fa-f0-9]{2}[:-]){5}[A-Fa-f0-9]{2}|[A-Fa-f0-9]{4}\\.[A-Fa-f0-9]{4}\\.[A-Fa-f0-9]{4})(?![A-Fa-f0-9])"
+    regex: "(?<![A-Fa-f0-9])(?:(?:[A-Fa-f0-9]{2}[:-]){5}[A-Fa-f0-9]{2}|[A-Fa-f0-9]{4}\\.[A-Fa-f0-9]{4}\\.[A-Fa-f0-9]{4})(?![A-Fa-f0-9])"

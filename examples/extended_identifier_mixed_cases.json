@@ -1,0 +1,132 @@
+{
+  "description": "CPN/CRN/IMEI/MCN 탐지/미탐 혼합 테스트 샘플입니다. 각 케이스의 request.text를 HTTP 또는 gRPC Detect 요청으로 전송해 검증할 수 있습니다.",
+  "pii_types": [
+    "CPN",
+    "CRN",
+    "IMEI",
+    "MCN"
+  ],
+  "cases": [
+    {
+      "id": "탐지_한국어라벨_전체유형",
+      "purpose": "한국어 라벨이 있으면 신규 4개 유형이 모두 탐지되어야 합니다.",
+      "request": {
+        "text": "법인 등록번호 110111-1234569\n자동차 등록번호 123가 4567\n단말기 IMEI 490154203237518\nMAC 주소 AA:BB:CC:DD:EE:FF",
+        "max_results_per_type": 20,
+        "ruleset": "default"
+      },
+      "expected": {
+        "CPN": [
+          "110111-1234569"
+        ],
+        "CRN": [
+          "123가 4567"
+        ],
+        "IMEI": [
+          "490154203237518"
+        ],
+        "MCN": [
+          "AA:BB:CC:DD:EE:FF"
+        ]
+      }
+    },
+    {
+      "id": "탐지_별칭라벨_전체유형",
+      "purpose": "짧은 별칭/동의어 라벨도 문맥 필터를 통과해야 합니다.",
+      "request": {
+        "text": "법인등기번호 110111-1234569\n차번 123가 4567\n단말기 고유번호 490154203237518\n네트워크 인터페이스 AA:BB:CC:DD:EE:FF",
+        "max_results_per_type": 20,
+        "ruleset": "default"
+      },
+      "expected": {
+        "CPN": [
+          "110111-1234569"
+        ],
+        "CRN": [
+          "123가 4567"
+        ],
+        "IMEI": [
+          "490154203237518"
+        ],
+        "MCN": [
+          "AA:BB:CC:DD:EE:FF"
+        ]
+      }
+    },
+    {
+      "id": "탐지_구분자변형",
+      "purpose": "지원하는 구분자 변형이 정상 탐지되어야 합니다.",
+      "request": {
+        "text": "법인 등기 번호 1101-11-123456-9\n구형 차량번호 서울 1가 2345\n신형 차량번호 123허 4567\ndevice imei 49015420-323751-8\n장비 MAC aabb.ccdd.eeff",
+        "max_results_per_type": 20,
+        "ruleset": "default"
+      },
+      "expected": {
+        "CPN": [
+          "1101-11-123456-9"
+        ],
+        "CRN": [
+          "서울 1가 2345",
+          "123허 4567"
+        ],
+        "IMEI": [
+          "49015420-323751-8"
+        ],
+        "MCN": [
+          "aabb.ccdd.eeff"
+        ]
+      }
+    },
+    {
+      "id": "탐지_영문라벨_전체유형",
+      "purpose": "영문 업무 데이터 라벨에서도 신규 유형이 탐지되어야 합니다.",
+      "request": {
+        "text": "corporate registration number: 110111-1234569\nvehicle registration number: 123가 4567\nmobile equipment identity: 490154203237518\nphysical address: AA-BB-CC-DD-EE-FF",
+        "max_results_per_type": 20,
+        "ruleset": "default"
+      },
+      "expected": {
+        "CPN": [
+          "110111-1234569"
+        ],
+        "CRN": [
+          "123가 4567"
+        ],
+        "IMEI": [
+          "490154203237518"
+        ],
+        "MCN": [
+          "AA-BB-CC-DD-EE-FF"
+        ]
+      }
+    },
+    {
+      "id": "미탐_잘못된체크섬",
+      "purpose": "형식은 비슷하지만 체크섬이 틀린 값은 제외되어야 합니다.",
+      "request": {
+        "text": "법인 등록번호 110111-1234567\nIMEI 490154203237519",
+        "max_results_per_type": 20,
+        "ruleset": "default"
+      },
+      "expected": {
+        "CPN": [],
+        "IMEI": []
+      }
+    },
+    {
+      "id": "미탐_문맥없는값",
+      "purpose": "문맥 라벨 없이 값만 있는 경우 문맥 필터에서 제외되는지 확인합니다.",
+      "request": {
+        "text": "샘플 코드 110111-1234569 / 123가 4567 / 490154203237518 / AA:BB:CC:DD:EE:FF",
+        "max_results_per_type": 20,
+        "ruleset": "default"
+      },
+      "expected": {
+        "CPN": [],
+        "CRN": [],
+        "IMEI": [],
+        "MCN": []
+      }
+    }
+  ]
+}

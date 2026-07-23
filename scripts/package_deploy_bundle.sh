@@ -328,11 +328,20 @@ if [[ -f "model-cache/hf-cache.tar.gz" ]]; then
     echo "cache restore image not found for tag ${CACHE_RESTORE_TAG}: ${CACHE_RESTORE_REPO}/api-http-cpu or ${CACHE_RESTORE_REPO}/api-grpc-cpu" >&2
     exit 1
   fi
-  docker run --rm \
+  if ! docker run --rm \
     -v "xcn-pii_hf_cache:/hf" \
     -v "${PROJECT_ROOT}/model-cache:/cache:ro" \
     "${CACHE_RESTORE_IMAGE}" \
-    sh -c 'tar -C /hf -xzf /cache/hf-cache.tar.gz'
+    sh -c 'find /hf -mindepth 1 -exec rm -rf {} + && tar -C /hf -xzf /cache/hf-cache.tar.gz'; then
+    echo "Docker-based cache restore failed; falling back to host tar" >&2
+    CACHE_VOLUME_DIR="$(docker volume inspect xcn-pii_hf_cache --format '{{ .Mountpoint }}')"
+    if [[ -z "${CACHE_VOLUME_DIR}" || ! -d "${CACHE_VOLUME_DIR}" ]]; then
+      echo "cannot resolve Docker volume mountpoint for xcn-pii_hf_cache" >&2
+      exit 1
+    fi
+    find "${CACHE_VOLUME_DIR}" -mindepth 1 -exec rm -rf {} +
+    tar -C "${CACHE_VOLUME_DIR}" -xzf "model-cache/hf-cache.tar.gz"
+  fi
 fi
 
 if [[ "${NO_START}" == "true" ]]; then
@@ -341,7 +350,7 @@ if [[ "${NO_START}" == "true" ]]; then
 fi
 
 echo "Starting package mode=${INSTALL_MODE} profiles=${INSTALL_PROFILES}"
-docker compose up -d
+docker compose up -d --force-recreate --remove-orphans
 INSTALL_EOF
 }
 

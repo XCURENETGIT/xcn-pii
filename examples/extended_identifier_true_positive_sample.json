@@ -1,0 +1,68 @@
+{
+  "description": "CPN/CRN/IMEI/MCN true-positive detection sample. The text includes Korean and English context labels so the new identifier types should pass contextual filtering.",
+  "pii_types": [
+    "CPN",
+    "CRN",
+    "IMEI",
+    "MCN"
+  ],
+  "request": {
+    "text": "신규 식별자 검출 테스트\n법인 등록번호: 110111-1234569\n법인등기번호: 1101-11-123456-9\n자동차 등록번호: 123가 4567\n차번: 서울 1가 2345\n차량 번호판: 123허 4567\nIMEI: 490154203237518\nDevice IMEI: 49015420-323751-8\nMAC 주소: AA:BB:CC:DD:EE:FF\n네트워크 인터페이스: aabb.ccdd.eeff\n\n운영 로그 확인용 혼합 문장\n계약 법인의 회사 등록 번호는 110111-1234569이고, 현장 차량번호는 123가 4567입니다. 지급 단말기의 mobile equipment identity 값은 490154203237518이며, 무선 장비 MAC address는 AA:BB:CC:DD:EE:FF입니다.",
+    "max_results_per_type": 50,
+    "ruleset": "default"
+  },
+  "expected": {
+    "CPN_CNT": 3,
+    "CPN": [
+      "110111-1234569",
+      "1101-11-123456-9",
+      "110111-1234569"
+    ],
+    "CRN_CNT": 4,
+    "CRN": [
+      "123가 4567",
+      "서울 1가 2345",
+      "123허 4567",
+      "123가 4567"
+    ],
+    "IMEI_CNT": 3,
+    "IMEI": [
+      "490154203237518",
+      "49015420-323751-8",
+      "490154203237518"
+    ],
+    "MCN_CNT": 3,
+    "MCN": [
+      "AA:BB:CC:DD:EE:FF",
+      "aabb.ccdd.eeff",
+      "AA:BB:CC:DD:EE:FF"
+    ]
+  },
+  "http_example": {
+    "method": "POST",
+    "url": "http://10.200.10.64:8006/pii/detect",
+    "body": {
+      "text": "same as request.text",
+      "max_results_per_type": 50,
+      "ruleset": "default"
+    }
+  },
+  "grpc_example": {
+    "target": "10.200.10.64:50055",
+    "service": "xcn.pii.v1.PiiDetector",
+    "method": "Detect",
+    "request": {
+      "text": "same as request.text",
+      "max_results_per_type": 50,
+      "ruleset": "default"
+    }
+  },
+  "log_check": {
+    "summary_should_include": "CPN=3 CRN=4 IMEI=3 MCN=3",
+    "files": [
+      "pii-api-grpc-1.log",
+      "pii-api-grpc-2.log",
+      "pii-api-grpc-3.log"
+    ]
+  }
+}

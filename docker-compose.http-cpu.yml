@@ -60,6 +60,7 @@ services:
       - TRANSFORMERS_OFFLINE=${TRANSFORMERS_OFFLINE:-1}
       - HF_DATASETS_OFFLINE=${HF_DATASETS_OFFLINE:-1}
       - HF_HUB_DISABLE_TELEMETRY=1
+      - PII_LOG_SERVICE_NAME=api-http
       - PII_EMBED_DEVICE=cpu
     volumes:
       - hf_cache:/data/hf

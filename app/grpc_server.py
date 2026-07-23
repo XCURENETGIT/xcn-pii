@@ -3,8 +3,12 @@ from __future__ import annotations
 import hashlib
 import json
 import logging
+import multiprocessing as mp
 import os
+import queue
+import threading
 import time
+import traceback
 from concurrent import futures
 from typing import Any
 
@@ -20,6 +24,10 @@ from .version import APP_VERSION
 logger = logging.getLogger("pii.grpc")
 
 
+class DetectTimeoutError(TimeoutError):
+    pass
+
+
 def _env(name: str, default: str) -> str:
     v = os.getenv(name)
     return v.strip() if v and v.strip() else default
@@ -33,6 +41,16 @@ def _env_int(name: str, default: int) -> int:
         return int(str(v).strip())
     except Exception:
         return int(default)
+
+
+def _env_float(name: str, default: float) -> float:
+    v = os.getenv(name)
+    if v is None:
+        return float(default)
+    try:
+        return float(str(v).strip())
+    except Exception:
+        return float(default)
 
 
 def _env_bool(name: str, default: bool) -> bool:
@@ -81,6 +99,10 @@ def _build_data(pb2: Any, found: dict) -> Any:
         "BN": ("bn_cnt", "bn"),
         "AN": ("an_cnt", "an"),
         "CN": ("cn_cnt", "cn"),
+        "CPN": ("cpn_cnt", "cpn"),
+        "CRN": ("crn_cnt", "crn"),
+        "IMEI": ("imei_cnt", "imei"),
+        "MCN": ("mcn_cnt", "mcn"),
         "EML": ("eml_cnt", "eml"),
         "VN_CCCD": ("vn_cccd_cnt", "vn_cccd"),
         "VN_MN": ("vn_mn_cnt", "vn_mn"),
@@ -99,11 +121,11 @@ def _build_data(pb2: Any, found: dict) -> Any:
 
 
 def _format_count_summary(found: dict) -> str:
-    keys = ("SN", "FN", "SSN", "DN", "PN", "MN", "BRN", "BN", "AN", "CN", "EML", "VN_CCCD", "VN_MN", "VN_PN", "VN_TIN", "VN_SI")
+    keys = ("SN", "FN", "SSN", "DN", "PN", "MN", "BRN", "BN", "AN", "CN", "CPN", "CRN", "IMEI", "MCN", "EML", "VN_CCCD", "VN_MN", "VN_PN", "VN_TIN", "VN_SI")
     return " ".join(f"{key}={len(found.get(key, []) or [])}" for key in keys)
 
 
-def _log_detect_summary(req_id: str, text: str, max_results_per_type: int, ruleset: str | None, found: dict, detect_ms: float, total_ms: float) -> None:
+def _log_detect_request(req_id: str, text: str, max_results_per_type: int, ruleset: str | None) -> None:
     logger.info(
         "[request] api=grpc method=Detect req=%s chars=%d bytes=%d max_results=%d ruleset=%s text=\"%s\"",
         req_id,
@@ -113,6 +135,9 @@ def _log_detect_summary(req_id: str, text: str, max_results_per_type: int, rules
         ruleset or os.getenv("PII_RULESET", "default"),
         _truncate_request_text(text),
     )
+
+
+def _log_detect_summary(req_id: str, found: dict, detect_ms: float, total_ms: float) -> None:
     logger.info(
         "[summary] api=grpc method=Detect req=%s status=200 detect_ms=%.1f total_ms=%.1f counts=\"%s\"",
         req_id,
@@ -121,8 +146,192 @@ def _log_detect_summary(req_id: str, text: str, max_results_per_type: int, rules
         _format_count_summary(found),
     )
 
+
+def _detect_worker(text: str, max_results_per_type: int, ruleset: str | None, result_queue) -> None:
+    try:
+        found, meta = detect_with_meta(
+            text,
+            max_results_per_type=max_results_per_type,
+            ruleset=ruleset,
+        )
+        result_queue.put(("ok", found, meta))
+    except BaseException as exc:
+        result_queue.put(("error", f"{type(exc).__name__}: {exc}", traceback.format_exc()))
+
+
+def _detect_worker_loop(task_queue, result_queue, ready_queue) -> None:
+    try:
+        worker_threads = str(max(1, _env_int("PII_DETECT_WORKER_TORCH_THREADS", 1)))
+        for name in ("OMP_NUM_THREADS", "OPENBLAS_NUM_THREADS", "MKL_NUM_THREADS", "NUMEXPR_NUM_THREADS"):
+            os.environ[name] = worker_threads
+        try:
+            import torch
+
+            torch.set_num_threads(int(worker_threads))
+            torch.set_num_interop_threads(1)
+        except Exception:
+            pass
+        warmed = preload_models()
+        ready_queue.put(("ready", warmed, ""))
+    except BaseException as exc:
+        ready_queue.put(("error", f"{type(exc).__name__}: {exc}", traceback.format_exc()))
+        return
+
+    while True:
+        task = task_queue.get()
+        if task is None:
+            return
+        task_id, text, max_results_per_type, ruleset = task
+        try:
+            found, meta = detect_with_meta(
+                text,
+                max_results_per_type=max_results_per_type,
+                ruleset=ruleset,
+            )
+            result_queue.put((task_id, "ok", found, meta))
+        except BaseException as exc:
+            result_queue.put((task_id, "error", f"{type(exc).__name__}: {exc}", traceback.format_exc()))
+
+
+def _detect_process_context() -> mp.context.BaseContext:
+    default_method = "spawn"
+    method = _env("PII_DETECT_PROCESS_START_METHOD", default_method)
+    return mp.get_context(method)
+
+
+class DetectWorkerPool:
+    def __init__(self, size: int) -> None:
+        self.size = max(1, int(size))
+        self.ctx = _detect_process_context()
+        self._lock = threading.Lock()
+        self._available: queue.Queue[int] = queue.Queue()
+        self._workers: list[dict[str, Any]] = []
+        for idx in range(self.size):
+            self._workers.append(self._start_worker(idx))
+            self._available.put(idx)
+
+    def _start_worker(self, idx: int) -> dict[str, Any]:
+        task_queue = self.ctx.Queue(maxsize=1)
+        result_queue = self.ctx.Queue(maxsize=1)
+        ready_queue = self.ctx.Queue(maxsize=1)
+        proc = self.ctx.Process(target=_detect_worker_loop, args=(task_queue, result_queue, ready_queue))
+        proc.daemon = True
+        proc.start()
+        try:
+            status, first, second = ready_queue.get(timeout=max(1.0, _env_float("PII_DETECT_WORKER_START_TIMEOUT_SEC", 90.0)))
+        except queue.Empty as exc:
+            self._terminate_raw(proc, task_queue, result_queue, ready_queue)
+            raise RuntimeError(f"PII detect worker {idx} did not become ready") from exc
+        finally:
+            ready_queue.close()
+            ready_queue.join_thread()
+
+        if status != "ready":
+            self._terminate_raw(proc, task_queue, result_queue, ready_queue)
+            raise RuntimeError(f"PII detect worker {idx} preload failed: {first}\n{second}")
+        return {"idx": idx, "task_queue": task_queue, "result_queue": result_queue, "proc": proc}
+
+    @staticmethod
+    def _drain(result_queue) -> None:
+        while True:
+            try:
+                result_queue.get_nowait()
+            except queue.Empty:
+                return
+
+    @staticmethod
+    def _terminate_raw(proc, *queues) -> None:
+        if proc.is_alive():
+            proc.terminate()
+            proc.join(2.0)
+        if proc.is_alive() and hasattr(proc, "kill"):
+            proc.kill()
+            proc.join(1.0)
+        for q in queues:
+            try:
+                q.close()
+                q.join_thread()
+            except Exception:
+                pass
+
+    def _terminate_worker(self, worker: dict[str, Any]) -> None:
+        self._terminate_raw(worker["proc"], worker["task_queue"], worker["result_queue"])
+
+    def _replace_worker(self, idx: int) -> None:
+        with self._lock:
+            self._terminate_worker(self._workers[idx])
+            self._workers[idx] = self._start_worker(idx)
+
+    def run(self, text: str, max_results_per_type: int, ruleset: str | None, timeout_sec: float) -> tuple[dict, dict]:
+        idx = self._available.get()
+        worker = self._workers[idx]
+        task_id = f"{idx}-{time.monotonic_ns()}"
+        timed_out = False
+        try:
+            self._drain(worker["result_queue"])
+            worker["task_queue"].put((task_id, text, max_results_per_type, ruleset))
+            deadline = time.monotonic() + timeout_sec
+            while True:
+                remaining = deadline - time.monotonic()
+                if remaining <= 0:
+                    timed_out = True
+                    self._replace_worker(idx)
+                    raise DetectTimeoutError(
+                        f"PII detection exceeded {timeout_sec:.1f}s timeout; worker index={idx} terminated"
+                    )
+                try:
+                    result_task_id, status, first, second = worker["result_queue"].get(timeout=remaining)
+                except queue.Empty:
+                    timed_out = True
+                    self._replace_worker(idx)
+                    raise DetectTimeoutError(
+                        f"PII detection exceeded {timeout_sec:.1f}s timeout; worker index={idx} terminated"
+                    )
+                if result_task_id != task_id:
+                    continue
+                if status == "ok":
+                    return first, second
+                raise RuntimeError(f"PII detection worker failed: {first}\n{second}")
+        finally:
+            self._available.put(idx)
+
+
+def _detect_with_process_timeout(pool: DetectWorkerPool, text: str, max_results_per_type: int, ruleset: str | None, timeout_sec: float) -> tuple[dict, dict]:
+    return pool.run(text, max_results_per_type, ruleset, timeout_sec)
+
+
+def _detect_with_single_process_timeout(text: str, max_results_per_type: int, ruleset: str | None, timeout_sec: float) -> tuple[dict, dict]:
+    ctx = _detect_process_context()
+    result_queue = ctx.Queue(maxsize=1)
+    proc = ctx.Process(target=_detect_worker, args=(text, max_results_per_type, ruleset, result_queue))
+    proc.start()
+    proc.join(timeout_sec)
+    if proc.is_alive():
+        proc.terminate()
+        proc.join(2.0)
+        if proc.is_alive() and hasattr(proc, "kill"):
+            proc.kill()
+            proc.join(1.0)
+        result_queue.close()
+        result_queue.join_thread()
+        raise DetectTimeoutError(f"PII detection exceeded {timeout_sec:.1f}s timeout; worker pid={proc.pid} terminated")
+
+    try:
+        status, first, second = result_queue.get_nowait()
+    except queue.Empty as exc:
+        raise RuntimeError(f"PII detection worker exited without result; exitcode={proc.exitcode}") from exc
+    finally:
+        result_queue.close()
+        result_queue.join_thread()
+
+    if status == "ok":
+        return first, second
+    raise RuntimeError(f"PII detection worker failed: {first}\n{second}")
+
+
 def serve() -> None:
-    if _env_bool("PII_MODEL_PRELOAD_ENABLED", True):
+    use_process_timeout = _env_bool("PII_DETECT_PROCESS_TIMEOUT_ENABLED", True)
+    if _env_bool("PII_MODEL_PRELOAD_ENABLED", True) and not use_process_timeout:
         try:
             warmed = preload_models()
             logger.info(
@@ -133,6 +342,18 @@ def serve() -> None:
             )
         except Exception:
             logger.exception("PII model preload failed")
+    elif use_process_timeout:
+        logger.info("PII model preload will run inside detect worker processes")
+
+    max_workers = max(1, _env_int("PII_GRPC_MAX_WORKERS", 4))
+    detect_timeout_sec = max(0.1, _env_float("PII_DETECT_TIMEOUT_SEC", 10.0))
+    detect_worker_pool = DetectWorkerPool(_env_int("PII_DETECT_PROCESS_WORKERS", max_workers))
+    logger.info(
+        "PII detect worker process pool started. workers=%d timeout_sec=%.1f start_method=%s",
+        detect_worker_pool.size,
+        detect_timeout_sec,
+        _detect_process_context().get_start_method(),
+    )
 
     class PiiDetectorServicer(pii_pb2_grpc.PiiDetectorServicer):
         def Detect(self, request, context):  # noqa: N802
@@ -142,15 +363,39 @@ def serve() -> None:
                 ruleset = request.ruleset.strip() if request.ruleset else None
                 req_id = hashlib.md5(text.encode("utf-8", errors="ignore")).hexdigest()[:8] if text else "empty"
                 t0 = time.perf_counter()
+                _log_detect_request(req_id, text, max_results_per_type, ruleset)
                 t_detect = time.perf_counter()
-                found, meta = detect_with_meta(
-                    text,
-                    max_results_per_type=max_results_per_type,
-                    ruleset=ruleset,
-                )
+                try:
+                    found, meta = _detect_with_process_timeout(
+                        detect_worker_pool,
+                        text,
+                        max_results_per_type,
+                        ruleset,
+                        detect_timeout_sec,
+                    )
+                except DetectTimeoutError as exc:
+                    total_ms = (time.perf_counter() - t0) * 1000.0
+                    logger.warning(
+                        "[timeout] api=grpc method=Detect req=%s status=504 timeout_sec=%.1f total_ms=%.1f chars=%d bytes=%d max_results=%d ruleset=%s detail=\"%s\"",
+                        req_id,
+                        detect_timeout_sec,
+                        total_ms,
+                        len(text),
+                        len(text.encode("utf-8", errors="ignore")),
+                        max_results_per_type,
+                        ruleset or os.getenv("PII_RULESET", "default"),
+                        str(exc),
+                    )
+                    context.set_code(grpc.StatusCode.DEADLINE_EXCEEDED)
+                    context.set_details(f"PII detection exceeded {detect_timeout_sec:.1f}s timeout")
+                    return pii_pb2.DetectResponse(
+                        success=False,
+                        status=504,
+                        message=f"PII detection exceeded {detect_timeout_sec:.1f}s timeout",
+                    )
                 detect_ms = (time.perf_counter() - t_detect) * 1000.0
                 total_ms = (time.perf_counter() - t0) * 1000.0
-                _log_detect_summary(req_id, text, max_results_per_type, ruleset, found, detect_ms, total_ms)
+                _log_detect_summary(req_id, found, detect_ms, total_ms)
                 return pii_pb2.DetectResponse(
                     success=True,
                     status=200,
@@ -234,7 +479,6 @@ def serve() -> None:
                     message=str(exc),
                 )
 
-    max_workers = max(1, _env_int("PII_GRPC_MAX_WORKERS", 4))
     max_concurrent_streams = max(1, _env_int("PII_GRPC_MAX_CONCURRENT_STREAMS", 1024))
     keepalive_time_ms = max(1000, _env_int("PII_GRPC_KEEPALIVE_TIME_MS", 30000))
     keepalive_timeout_ms = max(1000, _env_int("PII_GRPC_KEEPALIVE_TIMEOUT_MS", 10000))

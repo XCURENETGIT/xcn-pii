@@ -37,7 +37,7 @@ async def debug_context(req: DebugRequest):
     ctx = DetectContext(text=text, source_text=text, max_results=500, out=found, request_id=_request_id(text))
 
     target_keys = req.target_keys or [
-        "SN", "FN", "SSN", "DN", "PN", "MN", "BN", "CN", "EML",
+        "SN", "FN", "SSN", "DN", "PN", "MN", "BN", "CN", "CPN", "CRN", "IMEI", "MCN", "EML",
         "VN_CCCD", "VN_MN", "VN_PN", "VN_TIN", "VN_SI",
     ]
 

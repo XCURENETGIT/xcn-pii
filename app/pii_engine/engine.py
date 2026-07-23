@@ -72,14 +72,14 @@ class PiiEngine:
         # - PII_FASTPATH_ENABLED (default=true)
         # - PII_FASTPATH_TEXT_LEN (default=50000)
         # - PII_FASTPATH_MAX_RESULTS_PER_TYPE (default=200)
-        # - PII_FASTPATH_TARGET_KEYS (default=SN,FN,SSN,DN,PN,MN,BRN,AN,EML,CN,VN_CCCD,VN_MN,VN_PN,VN_TIN,VN_SI)
+        # - PII_FASTPATH_TARGET_KEYS (default=SN,FN,SSN,DN,PN,MN,BRN,AN,EML,CN,CPN,CRN,IMEI,MCN,VN_CCCD,VN_MN,VN_PN,VN_TIN,VN_SI)
         text_len = len(source_text)
         fast_enabled = _env_bool("PII_FASTPATH_ENABLED", True)
         fast_len = max(1, _env_int("PII_FASTPATH_TEXT_LEN", 50000))
         fast_max = max(1, _env_int("PII_FASTPATH_MAX_RESULTS_PER_TYPE", 200))
         fast_keys = _env_csv_upper(
             "PII_FASTPATH_TARGET_KEYS",
-            "SN,FN,SSN,DN,PN,MN,BRN,AN,EML,CN,VN_CCCD,VN_MN,VN_PN,VN_TIN,VN_SI",
+            "SN,FN,SSN,DN,PN,MN,BRN,AN,EML,CN,CPN,CRN,IMEI,MCN,VN_CCCD,VN_MN,VN_PN,VN_TIN,VN_SI",
         )
         fast_mode = bool(fast_enabled and text_len >= fast_len)
         allowed_keys = set(fast_keys)
@@ -245,7 +245,7 @@ class PiiEngine:
 
         if include_scores:
             scores: Dict[str, List[dict]] = {}
-            for k in ["SN", "FN", "SSN", "DN", "PN", "MN", "BRN", "BN", "AN", "CN", "EML", "VN_CCCD", "VN_MN", "VN_PN", "VN_TIN", "VN_SI"]:
+            for k in ["SN", "FN", "SSN", "DN", "PN", "MN", "BRN", "BN", "AN", "CN", "CPN", "CRN", "IMEI", "MCN", "EML", "VN_CCCD", "VN_MN", "VN_PN", "VN_TIN", "VN_SI"]:
                 items = ctx.out.get(k, []) or []
                 lst: List[dict] = []
                 for it in items:

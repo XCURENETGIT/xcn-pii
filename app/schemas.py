@@ -46,6 +46,14 @@ class PiiData(BaseModel):
     AN: Optional[List[MatchItem]] = None
     CN_CNT: Optional[int] = None
     CN: Optional[List[MatchItem]] = None
+    CPN_CNT: Optional[int] = None
+    CPN: Optional[List[MatchItem]] = None
+    CRN_CNT: Optional[int] = None
+    CRN: Optional[List[MatchItem]] = None
+    IMEI_CNT: Optional[int] = None
+    IMEI: Optional[List[MatchItem]] = None
+    MCN_CNT: Optional[int] = None
+    MCN: Optional[List[MatchItem]] = None
     EML_CNT: Optional[int] = None
     EML: Optional[List[MatchItem]] = None
     VN_CCCD_CNT: Optional[int] = None

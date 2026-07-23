@@ -29,7 +29,7 @@ class ContextualPostFilter(Detector):
     ):
         self.enabled = enabled
         self.target_keys = target_keys or [
-            "SN", "FN", "SSN", "DN", "PN", "MN", "BRN", "BN", "CN", "EML",
+            "SN", "FN", "SSN", "DN", "PN", "MN", "BRN", "BN", "CN", "CPN", "CRN", "IMEI", "MCN", "EML",
             "VN_CCCD", "VN_MN", "VN_PN", "VN_TIN", "VN_SI",
         ]
         self.window_sentences = int(window_sentences)
@@ -445,7 +445,7 @@ class ContextualLLMPostFilter(Detector):
     ):
         self.enabled = enabled
         self.target_keys = target_keys or [
-            "SN", "FN", "SSN", "DN", "PN", "MN", "BRN", "BN", "CN", "EML",
+            "SN", "FN", "SSN", "DN", "PN", "MN", "BRN", "BN", "CN", "CPN", "CRN", "IMEI", "MCN", "EML",
             "VN_CCCD", "VN_MN", "VN_PN", "VN_TIN", "VN_SI",
         ]
         self.window_sentences = int(window_sentences)

@@ -101,6 +101,14 @@ def build_pipeline(bundle: RuleBundle) -> List[Detector]:
     cn_regexes = _build_regexes(cn_doc, macros={})
     cn_hs_supported = _get_hs_supported_pattern_indexes(cn_doc, macros={})
     cn_supplement_regexes = _build_regexes_by_indexes(cn_doc, set(range(len(cn_doc.get("patterns") or []))) - cn_hs_supported, macros={})
+    cpn_doc = docs.get("cpn") or {}
+    cpn_regexes = _build_regexes(cpn_doc, macros={})
+    crn_doc = docs.get("crn") or {}
+    crn_regexes = _build_regexes(crn_doc, macros={})
+    imei_doc = docs.get("imei") or {}
+    imei_regexes = _build_regexes(imei_doc, macros={})
+    mcn_doc = docs.get("mcn") or {}
+    mcn_regexes = _build_regexes(mcn_doc, macros={})
     ip_doc = docs.get("ip") or {}
     ip_regexes = _build_regexes(ip_doc, macros={})
     ip_hs_supported = _get_hs_supported_pattern_indexes(ip_doc, macros={})
@@ -442,6 +450,26 @@ def build_pipeline(bundle: RuleBundle) -> List[Detector]:
                 pipeline.append(RegexDetector("CN", cn_regexes, enabled=bool(cn_doc.get("enabled", True)), max_match_len=max_len))
             continue
 
+        if step == "cpn":
+            max_len = int(cpn_doc.get("max_match_len") or max_len_default)
+            pipeline.append(RegexDetector("CPN", cpn_regexes, enabled=bool(cpn_doc.get("enabled", True)), max_match_len=max_len))
+            continue
+
+        if step == "crn":
+            max_len = int(crn_doc.get("max_match_len") or max_len_default)
+            pipeline.append(RegexDetector("CRN", crn_regexes, enabled=bool(crn_doc.get("enabled", True)), max_match_len=max_len))
+            continue
+
+        if step == "imei":
+            max_len = int(imei_doc.get("max_match_len") or max_len_default)
+            pipeline.append(RegexDetector("IMEI", imei_regexes, enabled=bool(imei_doc.get("enabled", True)), max_match_len=max_len))
+            continue
+
+        if step == "mcn":
+            max_len = int(mcn_doc.get("max_match_len") or max_len_default)
+            pipeline.append(RegexDetector("MCN", mcn_regexes, enabled=bool(mcn_doc.get("enabled", True)), max_match_len=max_len))
+            continue
+
         if step == "ip":
             max_len = int(ip_doc.get("max_match_len") or max_len_default)
             hs_db = _select_hs_db("IP", hs_ip_db)
@@ -511,7 +539,7 @@ def build_pipeline(bundle: RuleBundle) -> List[Detector]:
                 for x in (
                     ctx_doc.get("target_keys")
                     or [
-                        "SN", "FN", "SSN", "DN", "PN", "MN", "BRN", "BN", "CN", "EML",
+                        "SN", "FN", "SSN", "DN", "PN", "MN", "BRN", "BN", "CN", "CPN", "CRN", "IMEI", "MCN", "EML",
                         "VN_CCCD", "VN_MN", "VN_PN", "VN_TIN", "VN_SI",
                     ]
                 )

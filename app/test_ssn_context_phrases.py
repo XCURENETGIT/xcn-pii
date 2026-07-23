@@ -78,6 +78,32 @@ def test_ssn_spaced_format_passes_only_with_context_label():
     assert rejected[0]["matchString"] == "078 05 1120"
 
 
+def test_ssn_compact_url_page_id_is_rejected():
+    text = ".resourceUrl https://xcnsoultion.atlassian.net/wiki/pages/viewpage.action?pageId=115605505"
+    bundle = load_rules(rules_dir="app/rules", ruleset_name="default")
+    pipeline = build_pipeline(bundle)
+    ctx = DetectContext(text=text, max_results=20, out={})
+
+    for detector in pipeline:
+        detector.run(ctx)
+
+    assert ctx.get("SSN") == []
+
+
+def test_ssn_compact_explicit_ssn_url_parameter_is_detected():
+    text = "https://example.test/person?ssn=123456789"
+    bundle = load_rules(rules_dir="app/rules", ruleset_name="default")
+    pipeline = build_pipeline(bundle)
+    ctx = DetectContext(text=text, max_results=20, out={})
+
+    for detector in pipeline:
+        detector.run(ctx)
+
+    kept = ctx.get("SSN")
+    assert len(kept) == 1
+    assert kept[0]["matchString"] == "123456789"
+
+
 def test_context_accepts_added_indicator_variants_by_type():
     cases = [
         ("SN", "resident registration number 890512-2054508", "890512-2054508"),

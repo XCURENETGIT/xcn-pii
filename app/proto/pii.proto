@@ -103,6 +103,18 @@ message PiiData {
 
   int32 fn_cnt = 59;
   repeated MatchItem fn = 60;
+
+  int32 cpn_cnt = 61;
+  repeated MatchItem cpn = 62;
+
+  int32 crn_cnt = 63;
+  repeated MatchItem crn = 64;
+
+  int32 imei_cnt = 65;
+  repeated MatchItem imei = 66;
+
+  int32 mcn_cnt = 67;
+  repeated MatchItem mcn = 68;
 }
 
 message PiiMeta {

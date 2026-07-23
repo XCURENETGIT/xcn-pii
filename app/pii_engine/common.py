@@ -93,9 +93,10 @@ def _log_timing(stage: str, req_id: str | None = None, **fields: Any) -> None:
 
 def _summarize_counts(out: Dict[str, List[dict]]) -> Dict[str, int]:
     keys = [
-        "SN", "FN", "SSN", "DN", "PN", "MN", "BRN", "BN", "AN", "CN", "EML",
+        "SN", "FN", "SSN", "DN", "PN", "MN", "BRN", "BN", "AN", "CN", "CPN", "CRN", "IMEI", "MCN", "EML",
         "SN_CTX_REJECTED", "SSN_CTX_REJECTED", "DN_CTX_REJECTED",
-        "PN_CTX_REJECTED", "MN_CTX_REJECTED", "BRN_CTX_REJECTED", "BN_CTX_REJECTED", "AN_CTX_REJECTED", "CN_CTX_REJECTED", "EML_CTX_REJECTED",
+        "PN_CTX_REJECTED", "MN_CTX_REJECTED", "BRN_CTX_REJECTED", "BN_CTX_REJECTED", "AN_CTX_REJECTED", "CN_CTX_REJECTED",
+        "CPN_CTX_REJECTED", "CRN_CTX_REJECTED", "IMEI_CTX_REJECTED", "MCN_CTX_REJECTED", "EML_CTX_REJECTED",
     ]
     d: Dict[str, int] = {}
     for k in keys:
@@ -341,6 +342,10 @@ _CROSS_TYPE_OVERLAP_KEYS = [
     "VN_PN",
     "EML",
     "CN",
+    "CPN",
+    "CRN",
+    "IMEI",
+    "MCN",
     "VN_MN",
     "MN",
     "VN_CCCD",
@@ -730,6 +735,54 @@ def card_structure_valid(value: str) -> bool:
     return _luhn_valid(digits)
 
 
+def cpn_structure_valid(value: str) -> bool:
+    digits = _digits_only(_normalize_digit_text(str(value or "").strip()))
+    if len(digits) != 13:
+        return False
+    if len(set(digits)) <= 1:
+        return False
+    total = 0
+    for idx, ch in enumerate(digits[:12]):
+        total += int(ch) * (1 if idx % 2 == 0 else 2)
+    expected = (10 - (total % 10)) % 10
+    return expected == int(digits[12])
+
+
+def crn_structure_valid(value: str) -> bool:
+    raw = str(value or "").strip()
+    if not raw:
+        return False
+    return bool(
+        re.fullmatch(
+            r"(?:(?:서울|부산|대구|인천|광주|대전|울산|세종|경기|강원|충북|충남|전북|전남|경북|경남|제주)\s*\d{1,3}|\d{2,3})\s*[가나다라마거너더러머버서어저고노도로모보소오조구누두루무부수우주아바사자배하허호]\s*\d{4}",
+            raw,
+        )
+    )
+
+
+def imei_structure_valid(value: str) -> bool:
+    digits = _digits_only(str(value or "").strip())
+    if len(digits) != 15:
+        return False
+    if len(set(digits)) <= 1:
+        return False
+    return _luhn_valid(digits)
+
+
+def mac_structure_valid(value: str) -> bool:
+    raw = str(value or "").strip()
+    if not raw:
+        return False
+    colon_dash = re.fullmatch(r"[A-Fa-f0-9]{2}([:-])[A-Fa-f0-9]{2}(?:\1[A-Fa-f0-9]{2}){4}", raw)
+    dotted = re.fullmatch(r"[A-Fa-f0-9]{4}\.[A-Fa-f0-9]{4}\.[A-Fa-f0-9]{4}", raw)
+    if not colon_dash and not dotted:
+        return False
+    hex_digits = re.sub(r"[^A-Fa-f0-9]", "", raw).lower()
+    if len(hex_digits) != 12:
+        return False
+    return len(set(hex_digits)) > 1
+
+
 def ssn_structure_valid(value: str) -> bool:
     digits = _digits_only(str(value or "").strip())
     if len(digits) != 9:
@@ -742,6 +795,42 @@ def ssn_structure_valid(value: str) -> bool:
     if group == "00" or serial == "0000":
         return False
     return True
+
+
+_URL_TOKEN_RE = re.compile(r"(?i)(?:https?://|www\.)[^\s<>\"']+")
+_SSN_URL_PARAM_KEYS = {
+    "ssn",
+    "socialsecuritynumber",
+    "socialsecurityno",
+    "taxpayeridentificationnumber",
+    "taxidentificationnumber",
+    "taxid",
+    "tin",
+}
+
+
+def ssn_candidate_in_non_pii_url(text: str, start: int, end: int) -> bool:
+    """Return True when an SSN-shaped span is an ordinary URL identifier.
+
+    Compact nine-digit IDs are common in URL paths and query parameters. They
+    should not become US SSN detections unless the containing query parameter
+    explicitly identifies the value as an SSN/tax identifier.
+    """
+    source = str(text or "")
+    span_start = max(0, int(start or 0))
+    span_end = max(span_start, int(end or 0))
+    for url_match in _URL_TOKEN_RE.finditer(source):
+        if not (url_match.start() <= span_start and span_end <= url_match.end()):
+            continue
+        url_text = url_match.group(0)
+        for param_match in re.finditer(r"(?:[?&])([^=&#]+)=([^&#]*)", url_text):
+            value_start = url_match.start() + param_match.start(2)
+            value_end = url_match.start() + param_match.end(2)
+            if value_start <= span_start and span_end <= value_end:
+                key = re.sub(r"[^a-z0-9]", "", param_match.group(1).lower())
+                return key not in _SSN_URL_PARAM_KEYS
+        return True
+    return False
 
 
 def phone_structure_valid(value: str) -> bool:

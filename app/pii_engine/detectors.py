@@ -167,6 +167,17 @@ class HSRegexDetector(Detector):
                 break
         if self.supplement_regexes and len(out) < ctx.max_results:
             out.extend(self._scan_supplement(ctx))
+        if self.out_key == "SSN":
+            out = [
+                it
+                for it in out
+                if ssn_structure_valid(str(it.get("matchString", "")))
+                and not ssn_candidate_in_non_pii_url(
+                    ctx.text,
+                    int(it.get("start", 0)),
+                    int(it.get("end", 0)),
+                )
+            ]
         verify_ms = _timing_ms(t0_verify)
         t0_finalize = _timing_now()
         existing = ctx.get(self.out_key) or []
@@ -253,9 +264,26 @@ class RegexDetector(Detector):
         elif self.out_key == "EML":
             items = [it for it in items if email_structure_valid(it.get("matchString", ""))]
         elif self.out_key == "SSN":
-            items = [it for it in items if ssn_structure_valid(it.get("matchString", ""))]
+            items = [
+                it
+                for it in items
+                if ssn_structure_valid(it.get("matchString", ""))
+                and not ssn_candidate_in_non_pii_url(
+                    ctx.text,
+                    int(it.get("start", 0)),
+                    int(it.get("end", 0)),
+                )
+            ]
         elif self.out_key == "CN":
             items = [it for it in items if card_structure_valid(it.get("matchString", ""))]
+        elif self.out_key == "CPN":
+            items = [it for it in items if cpn_structure_valid(it.get("matchString", ""))]
+        elif self.out_key == "CRN":
+            items = [it for it in items if crn_structure_valid(it.get("matchString", ""))]
+        elif self.out_key == "IMEI":
+            items = [it for it in items if imei_structure_valid(it.get("matchString", ""))]
+        elif self.out_key == "MCN":
+            items = [it for it in items if mac_structure_valid(it.get("matchString", ""))]
         elif self.out_key == "IP":
             items = [it for it in items if ip_structure_valid(it.get("matchString", ""))]
         post_ms = _timing_ms(t0_post)

@@ -9,6 +9,10 @@ steps:
   - vn_pn
   - EML
   - cn
+  - cpn
+  - crn
+  - imei
+  - mcn
   - mn
   - vn_mn
   - vn_cccd
@@ -35,6 +39,10 @@ rule_files:
   bn: bn_strict.yaml
   an: an.yaml
   cn: cn.yaml
+  cpn: cpn.yaml
+  crn: crn.yaml
+  imei: imei.yaml
+  mcn: mcn.yaml
   EML: eml.yaml
   context: context.yaml
 # Common engine defaults.
