@@ -456,6 +456,7 @@ class ContextualLLMPostFilter(Detector):
         self.keyword_threshold = int(keyword_threshold)
         self.cache_size = int(cache_size)
         self.embed_max_chars = max(0, _env_int("PII_CONTEXT_EMBED_MAX_CHARS", 256))
+        self.normalize_embed_digits = _env_bool("PII_CONTEXT_EMBED_NORMALIZE_DIGITS", False)
         self._embed_cache: Dict[str, Any] = {}
         self.per_type = per_type or {}
         self.hybrid_cfg = hybrid_cfg or {}
@@ -487,6 +488,12 @@ class ContextualLLMPostFilter(Detector):
         if isinstance(self.per_type.get(key), dict):
             cfg.update(self.per_type[key])
         return cfg
+
+    def _normalize_embedding_text(self, value: str) -> str:
+        normalized = _normalize_match_text(value)
+        if self.normalize_embed_digits:
+            normalized = re.sub(r"\d", "0", normalized)
+        return normalized
 
     def _get_label_res(self, key: str, label_patterns: List[str]) -> List[Pattern]:
         cache_key = key + "::" + "|".join(label_patterns)
@@ -527,7 +534,7 @@ class ContextualLLMPostFilter(Detector):
         if self.model is None:
             return None, None
 
-        phrases = [_normalize_match_text(x) for x in (indicators + non_indicators)]
+        phrases = [self._normalize_embedding_text(x) for x in (indicators + non_indicators)]
         if hasattr(self.model, "encode"):
             embs = self.model.encode(phrases, convert_to_numpy=True, normalize_embeddings=True, show_progress_bar=False)
         else:
@@ -547,7 +554,7 @@ class ContextualLLMPostFilter(Detector):
         # If an external embedder is provided, use it.
         if self.embedder is not None:
             self.model = self.embedder
-            phrases = [_normalize_match_text(x) for x in (self._indicator_phrases + self._non_pii_phrases)]
+            phrases = [self._normalize_embedding_text(x) for x in (self._indicator_phrases + self._non_pii_phrases)]
             embs = self.model.encode(phrases, show_progress_bar=False)
             import numpy as _np
             embs = _np.asarray(embs)
@@ -555,6 +562,9 @@ class ContextualLLMPostFilter(Detector):
             self._non_pii_emb = _np.asarray(embs[len(self._indicator_phrases) :])
             return
 
+        device = _resolve_embed_device()
+        configure_hf_runtime()
+        local_files_only = hf_offline_enabled()
         try:
             from sentence_transformers import SentenceTransformer
             import numpy as np
@@ -562,9 +572,6 @@ class ContextualLLMPostFilter(Detector):
             self.model = None
             return
 
-        device = _resolve_embed_device()
-        configure_hf_runtime()
-        local_files_only = hf_offline_enabled()
         try:
             self.model = SentenceTransformer(self.model_name, device=device, local_files_only=local_files_only)
         except TypeError:
@@ -579,7 +586,7 @@ class ContextualLLMPostFilter(Detector):
                 self.model = SentenceTransformer(self.model_name, device=device)
         logger.info("Loaded sentence-transformer model=%s device=%s", self.model_name, device)
         # compute normalized embeddings for indicator phrases
-        phrases = [_normalize_match_text(x) for x in (self._indicator_phrases + self._non_pii_phrases)]
+        phrases = [self._normalize_embedding_text(x) for x in (self._indicator_phrases + self._non_pii_phrases)]
         embs = self.model.encode(phrases, convert_to_numpy=True, normalize_embeddings=True, show_progress_bar=False)
         import numpy as _np
         self._indicator_emb = _np.asarray(embs[: len(self._indicator_phrases)])
@@ -646,14 +653,59 @@ class ContextualLLMPostFilter(Detector):
         sentence_spans = _split_sentences(text)
         window_cache: Dict[Tuple[int, int, int], Tuple[str, int, int]] = {}
         prepared_by_key: Dict[str, List[Tuple[int, dict, int, int, str]]] = {}
+        rule_first_by_key: Dict[str, List[dict]] = {}
         all_missing_snippets: List[str] = []
         all_missing_seen: set[str] = set()
+        semantic_snippets_seen: set[str] = set()
+        input_candidates = 0
+        semantic_candidates = 0
+        rule_first_accepted = 0
+        rule_first_enabled = bool(
+            _env_bool("PII_CONTEXT_RULE_FIRST_ENABLED", False)
+            and not self.debug
+            and not _env_bool("PII_INCLUDE_CONTEXT_SCORES", False)
+        )
         for key in self.target_keys:
             type_cfg = self._get_type_cfg(key)
             window = int(type_cfg.get("window_sentences", self.window_sentences))
             embed_max_chars = int(type_cfg.get("embed_max_chars", self.embed_max_chars))
             items = ctx.get(key) or []
+            input_candidates += len(items)
+            value_counts = _match_value_counts(items) if rule_first_enabled else {}
+            repeat_same_match_min = int(type_cfg.get("repeat_same_match_force_pass_min_count", 0) or 0)
+            force_pass_phrases = [str(x).strip() for x in (type_cfg.get("force_pass_phrases") or []) if str(x).strip()]
+            force_pass_scope = str(type_cfg.get("force_pass_scope") or "snippet").strip().lower()
+            foreigner_context_phrases = [
+                str(x).strip()
+                for x in (
+                    type_cfg.get("foreigner_context_phrases")
+                    or ["foreigner", "alien", "foreign resident", "외국인"]
+                )
+                if str(x).strip()
+            ]
+            hybrid = dict(self.hybrid_cfg) if isinstance(self.hybrid_cfg, dict) else {}
+            if isinstance(type_cfg.get("hybrid"), dict):
+                hybrid.update(type_cfg["hybrid"])
+            if rule_first_enabled:
+                (
+                    name_pii_row_pass_by_idx,
+                    name_pii_row_count_by_idx,
+                    name_pii_row_token_by_idx,
+                ) = _compute_name_pii_row_repeat_plan(
+                    text=text,
+                    items=items,
+                    enabled=bool(hybrid.get("name_pii_row_repeat_enabled", False)),
+                    min_count=max(1, int(hybrid.get("name_pii_row_repeat_min_count", 2))),
+                    unique_min=max(1, int(hybrid.get("name_pii_row_repeat_unique_min", 1))),
+                    max_distance_chars=max(1, int(hybrid.get("name_pii_row_repeat_max_distance_chars", 24))),
+                    require_consecutive=bool(hybrid.get("name_pii_row_repeat_require_consecutive", True)),
+                )
+            else:
+                name_pii_row_pass_by_idx = []
+                name_pii_row_count_by_idx = []
+                name_pii_row_token_by_idx = []
             meta: List[Tuple[int, dict, int, int, str]] = []
+            rule_first_items: List[dict] = []
             for item_idx, it in enumerate(items):
                 s, e = it.get("start", 0), it.get("end", 0)
                 cache_key = (int(s), int(e), int(window))
@@ -671,20 +723,72 @@ class ContextualLLMPostFilter(Detector):
                 )
                 if not snippet.strip():
                     continue
+                if rule_first_enabled:
+                    accept_by = ""
+                    match_key = _normalize_match_text(str(it.get("matchString") or "").strip())
+                    if repeat_same_match_min > 1 and value_counts.get(match_key, 0) >= repeat_same_match_min:
+                        accept_by = "repeat_same_match"
+                        it["context_repeat_same_match_count"] = value_counts.get(match_key, 0)
+                    else:
+                        scope_text = text if force_pass_scope == "text" else snippet
+                        force_phrase = _find_matching_phrase(scope_text, force_pass_phrases)
+                        if force_phrase:
+                            accept_by = "force_phrase"
+                            it["context_force_pass_phrase"] = force_phrase
+                        elif key == "FN" and rrn_foreigner_registration_candidate(str(it.get("matchString") or "")):
+                            foreigner_phrase = _find_matching_phrase(snippet, foreigner_context_phrases)
+                            if foreigner_phrase:
+                                accept_by = "foreigner_context"
+                                it["context_foreigner_phrase"] = foreigner_phrase
+                        if (
+                            not accept_by
+                            and item_idx < len(name_pii_row_pass_by_idx)
+                            and name_pii_row_pass_by_idx[item_idx]
+                        ):
+                            accept_by = "name_pii_row_repeat"
+                            it["context_name_pii_row_count"] = name_pii_row_count_by_idx[item_idx]
+                            it["context_name_pii_row_token"] = name_pii_row_token_by_idx[item_idx]
+                    if accept_by:
+                        if key == "DN":
+                            detected_by = "hyperscan:dn"
+                        elif key == "SN":
+                            detected_by = "regex:sn"
+                        elif key == "FN":
+                            detected_by = "regex:fn"
+                        else:
+                            detected_by = f"regex:{key.lower()}"
+                        it["context_snippet"] = snippet
+                        it["context_window"] = window
+                        it["context_method"] = "embed"
+                        it["context_pass"] = True
+                        it["context_accept_by"] = accept_by
+                        if not it.get("detected_by"):
+                            it["detected_by"] = detected_by
+                        rule_first_items.append(it)
+                        rule_first_accepted += 1
+                        continue
                 meta.append((item_idx, it, s, e, snippet))
-                if snippet not in self._embed_cache and snippet not in all_missing_seen:
-                    all_missing_seen.add(snippet)
-                    all_missing_snippets.append(snippet)
+                semantic_candidates += 1
+                embedding_text = self._normalize_embedding_text(snippet)
+                semantic_snippets_seen.add(embedding_text)
+                if embedding_text not in self._embed_cache and embedding_text not in all_missing_seen:
+                    all_missing_seen.add(embedding_text)
+                    all_missing_snippets.append(embedding_text)
             prepared_by_key[key] = meta
+            rule_first_by_key[key] = rule_first_items
 
         total_encode_ms = 0.0
         if all_missing_snippets:
             t0_encode_all = _timing_now()
-            uniq_norm = [_normalize_match_text(snip) for snip in all_missing_snippets]
             if hasattr(self.model, "encode"):
-                new_vecs = self.model.encode(uniq_norm, convert_to_numpy=True, normalize_embeddings=True, show_progress_bar=False)
+                new_vecs = self.model.encode(
+                    all_missing_snippets,
+                    convert_to_numpy=True,
+                    normalize_embeddings=True,
+                    show_progress_bar=False,
+                )
             else:
-                new_vecs = self.model.encode(uniq_norm, show_progress_bar=False)
+                new_vecs = self.model.encode(all_missing_snippets, show_progress_bar=False)
             total_encode_ms = _timing_ms(t0_encode_all)
             for snip, vec in zip(all_missing_snippets, new_vecs):
                 self._embed_cache[snip] = vec
@@ -793,7 +897,7 @@ class ContextualLLMPostFilter(Detector):
                 max_distance_chars=name_pii_row_repeat_max_distance,
                 require_consecutive=name_pii_row_repeat_require_consecutive,
             )
-            kept: List[dict] = []
+            kept: List[dict] = list(rule_first_by_key.get(key) or [])
             rejected: List[dict] = []
             header_hint_cache: Dict[Tuple[int, int], str] = {}
             rule_score_cache: Dict[Tuple[int, int, str, str], float] = {}
@@ -814,7 +918,7 @@ class ContextualLLMPostFilter(Detector):
 
             snippet_score_cache: Dict[str, Tuple[float, float, float]] = {}
             for snip in {m[4] for m in meta}:
-                vec = self._embed_cache.get(snip)
+                vec = self._embed_cache.get(self._normalize_embedding_text(snip))
                 if vec is None:
                     continue
                 sims = _np.dot(ind_emb, vec)
@@ -1009,7 +1113,8 @@ class ContextualLLMPostFilter(Detector):
                 input=len(items),
                 kept=len(kept),
                 rejected=len(rejected),
-                uniq_snippets=len({m[3] for m in meta}),
+                uniq_snippets=len({m[4] for m in meta}),
+                rule_first=len(rule_first_by_key.get(key) or []),
             )
             if stage_log:
                 logger.info(
@@ -1018,7 +1123,22 @@ class ContextualLLMPostFilter(Detector):
                     len(kept),
                     len(rejected),
                 )
-        _log_timing("context.embed.total", req_id=ctx.request_id, ms=f"{_timing_ms(t0_all):.1f}", encode_ms=f"{total_encode_ms:.1f}", keys=len(self.target_keys), mode="embed")
+        _log_timing(
+            "context.embed.total",
+            req_id=ctx.request_id,
+            ms=f"{_timing_ms(t0_all):.1f}",
+            encode_ms=f"{total_encode_ms:.1f}",
+            keys=len(self.target_keys),
+            mode="embed",
+            input_candidates=input_candidates,
+            semantic_candidates=semantic_candidates,
+            rule_first_accepted=rule_first_accepted,
+            unique_snippets=len(semantic_snippets_seen),
+            cache_hits=max(0, len(semantic_snippets_seen) - len(all_missing_snippets)),
+            cache_misses=len(all_missing_snippets),
+            rule_first_enabled=str(rule_first_enabled).lower(),
+            normalize_digits=str(self.normalize_embed_digits).lower(),
+        )
 
 
 # ============================================================

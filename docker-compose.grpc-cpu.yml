@@ -6,7 +6,8 @@ services:
     image: ${PII_IMAGE_REPO:-xcn-pii}/api-grpc-cpu:${PII_IMAGE_TAG:-latest}
     build:
       context: .
-      dockerfile: Dockerfile.grpc
+      dockerfile: Dockerfile.cpu
+      target: grpc-runtime
       args:
         INSTALL_SEMANTIC: ${GRPC_INSTALL_SEMANTIC:-true}
     command: ["python", "-m", "app.grpc_server"]
@@ -31,7 +32,7 @@ services:
       - PII_SPLIT_TEXT_LEN=50000
       - PII_SPLIT_CHUNK_CHARS=50000
       - PII_SPLIT_OVERLAP_CHARS=2000
-      - PII_SPLIT_MAX_WORKERS=1
+      - PII_SPLIT_MAX_WORKERS=${PII_SPLIT_MAX_WORKERS:-1}
       - PII_SPLIT_MAX_RESULTS_PER_TYPE=200
       - PII_SPLIT_MAX_CHUNKS=64
       - PII_FASTPATH_ENABLED=true
@@ -49,9 +50,12 @@ services:
       - PII_HS_IP_ENABLED=false
       - PII_HS_COMBINED_ENABLED=${PII_HS_COMBINED_ENABLED:-true}
       - PII_CONTEXT_EMBED_MAX_CHARS=${PII_CONTEXT_EMBED_MAX_CHARS:-256}
+      - PII_CONTEXT_EMBED_NORMALIZE_DIGITS=${PII_CONTEXT_EMBED_NORMALIZE_DIGITS:-true}
+      - PII_CONTEXT_RULE_FIRST_ENABLED=${PII_CONTEXT_RULE_FIRST_ENABLED:-true}
       - PII_TRACE_DETECT=false
       - PII_TRACE_SLOW_MS=800
-      - PII_STAGE_TIMING_ENABLED=false
+      - PII_STAGE_TIMING_LEVEL=${PII_STAGE_TIMING_LEVEL:-INFO}
+      - PII_STAGE_TIMING_ENABLED=${PII_STAGE_TIMING_ENABLED:-false}
       - PII_STAGE_LOG_ENABLED=false
       - PII_STAGE_LOG_ITEMS=false
       - PII_STAGE_LOG_ITEM_LIMIT=100

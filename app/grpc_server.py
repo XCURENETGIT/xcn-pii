@@ -161,6 +161,12 @@ def _detect_worker(text: str, max_results_per_type: int, ruleset: str | None, re
 
 def _detect_worker_loop(task_queue, result_queue, ready_queue) -> None:
     try:
+        if _env_bool("PII_STAGE_TIMING_ENABLED", False):
+            configured_name = _env("PII_LOG_FILE_NAME", "pii-api-grpc")
+            log_stem = configured_name[:-4] if configured_name.lower().endswith(".log") else configured_name
+            worker_host = _env("HOSTNAME", "container")[:12]
+            os.environ["PII_LOG_FILE_NAME"] = f"{log_stem}-{worker_host}-worker-{os.getpid()}.log"
+            setup_file_logging()
         worker_threads = str(max(1, _env_int("PII_DETECT_WORKER_TORCH_THREADS", 1)))
         for name in ("OMP_NUM_THREADS", "OPENBLAS_NUM_THREADS", "MKL_NUM_THREADS", "NUMEXPR_NUM_THREADS"):
             os.environ[name] = worker_threads
@@ -257,10 +263,65 @@ class DetectWorkerPool:
     def _terminate_worker(self, worker: dict[str, Any]) -> None:
         self._terminate_raw(worker["proc"], worker["task_queue"], worker["result_queue"])
 
-    def _replace_worker(self, idx: int) -> None:
-        with self._lock:
-            self._terminate_worker(self._workers[idx])
-            self._workers[idx] = self._start_worker(idx)
+    @staticmethod
+    def _request_worker_termination(worker: dict[str, Any]) -> None:
+        proc = worker["proc"]
+        if proc.is_alive():
+            proc.terminate()
+
+    def _replace_worker_in_background(self, idx: int, worker: dict[str, Any]) -> None:
+        started_at = time.monotonic()
+        retry_sec = max(0.1, _env_float("PII_DETECT_WORKER_RESTART_RETRY_SEC", 1.0))
+        while True:
+            try:
+                self._terminate_worker(worker)
+                break
+            except Exception:
+                logger.exception(
+                    "[worker-recovery] worker index=%d termination cleanup failed retry_sec=%.1f",
+                    idx,
+                    retry_sec,
+                )
+                time.sleep(retry_sec)
+
+        attempt = 0
+        while True:
+            attempt += 1
+            try:
+                replacement = self._start_worker(idx)
+            except Exception:
+                logger.exception(
+                    "[worker-recovery] worker index=%d restart failed attempt=%d retry_sec=%.1f",
+                    idx,
+                    attempt,
+                    retry_sec,
+                )
+                time.sleep(retry_sec)
+                continue
+
+            with self._lock:
+                self._workers[idx] = replacement
+            self._available.put(idx)
+            logger.info(
+                "[worker-recovery] worker index=%d ready attempts=%d recovery_ms=%.1f",
+                idx,
+                attempt,
+                (time.monotonic() - started_at) * 1000.0,
+            )
+            return
+
+    def _schedule_worker_replacement(self, idx: int, worker: dict[str, Any]) -> None:
+        try:
+            self._request_worker_termination(worker)
+        except Exception:
+            logger.exception("[worker-recovery] worker index=%d initial termination request failed", idx)
+        replacement_thread = threading.Thread(
+            target=self._replace_worker_in_background,
+            args=(idx, worker),
+            name=f"pii-detect-worker-recovery-{idx}",
+            daemon=True,
+        )
+        replacement_thread.start()
 
     def run(self, text: str, max_results_per_type: int, ruleset: str | None, timeout_sec: float) -> tuple[dict, dict]:
         idx = self._available.get()
@@ -275,7 +336,7 @@ class DetectWorkerPool:
                 remaining = deadline - time.monotonic()
                 if remaining <= 0:
                     timed_out = True
-                    self._replace_worker(idx)
+                    self._schedule_worker_replacement(idx, worker)
                     raise DetectTimeoutError(
                         f"PII detection exceeded {timeout_sec:.1f}s timeout; worker index={idx} terminated"
                     )
@@ -283,7 +344,7 @@ class DetectWorkerPool:
                     result_task_id, status, first, second = worker["result_queue"].get(timeout=remaining)
                 except queue.Empty:
                     timed_out = True
-                    self._replace_worker(idx)
+                    self._schedule_worker_replacement(idx, worker)
                     raise DetectTimeoutError(
                         f"PII detection exceeded {timeout_sec:.1f}s timeout; worker index={idx} terminated"
                     )
@@ -293,7 +354,8 @@ class DetectWorkerPool:
                     return first, second
                 raise RuntimeError(f"PII detection worker failed: {first}\n{second}")
         finally:
-            self._available.put(idx)
+            if not timed_out:
+                self._available.put(idx)
 
 
 def _detect_with_process_timeout(pool: DetectWorkerPool, text: str, max_results_per_type: int, ruleset: str | None, timeout_sec: float) -> tuple[dict, dict]:
@@ -345,9 +407,9 @@ def serve() -> None:
     elif use_process_timeout:
         logger.info("PII model preload will run inside detect worker processes")
 
-    max_workers = max(1, _env_int("PII_GRPC_MAX_WORKERS", 4))
+    max_workers = max(1, _env_int("PII_GRPC_MAX_WORKERS", 6))
     detect_timeout_sec = max(0.1, _env_float("PII_DETECT_TIMEOUT_SEC", 10.0))
-    detect_worker_pool = DetectWorkerPool(_env_int("PII_DETECT_PROCESS_WORKERS", max_workers))
+    detect_worker_pool = DetectWorkerPool(_env_int("PII_DETECT_PROCESS_WORKERS", 4))
     logger.info(
         "PII detect worker process pool started. workers=%d timeout_sec=%.1f start_method=%s",
         detect_worker_pool.size,

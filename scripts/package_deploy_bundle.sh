@@ -176,12 +176,17 @@ write_sanitized_env() {
     echo "PII_IMAGE_REPO=${PII_IMAGE_REPO}"
     echo "PII_IMAGE_TAG=${PII_IMAGE_TAG}"
     echo "PII_GRPC_SCALE=${GRPC_SCALE}"
+    echo "PII_GRPC_MAX_WORKERS=${PII_GRPC_MAX_WORKERS:-6}"
+    echo "PII_DETECT_PROCESS_WORKERS=${PII_DETECT_PROCESS_WORKERS:-4}"
+    echo "PII_SPLIT_MAX_WORKERS=${PII_SPLIT_MAX_WORKERS:-1}"
+    echo "PII_CONTEXT_RULE_FIRST_ENABLED=${PII_CONTEXT_RULE_FIRST_ENABLED:-true}"
+    echo "PII_CONTEXT_EMBED_NORMALIZE_DIGITS=${PII_CONTEXT_EMBED_NORMALIZE_DIGITS:-true}"
     echo "PII_MODEL_PRELOAD_ENABLED=true"
     if [[ -f "${PROJECT_ROOT}/.env" ]]; then
       while IFS= read -r line || [[ -n "${line}" ]]; do
         case "${line}" in
           ""|\#*) continue ;;
-          PII_IMAGE_REPO=*|PII_IMAGE_TAG=*|PII_GRPC_SCALE=*) continue ;;
+          PII_IMAGE_REPO=*|PII_IMAGE_TAG=*|PII_GRPC_SCALE=*|PII_GRPC_MAX_WORKERS=*|PII_DETECT_PROCESS_WORKERS=*|PII_SPLIT_MAX_WORKERS=*|PII_CONTEXT_RULE_FIRST_ENABLED=*|PII_CONTEXT_EMBED_NORMALIZE_DIGITS=*|PII_MODEL_PRELOAD_ENABLED=*) continue ;;
           *) echo "${line}" ;;
         esac
       done < "${PROJECT_ROOT}/.env"
@@ -397,6 +402,8 @@ Notes:
 - `install.sh` defaults to gRPC mode. Use `--mode all|http|https|grpc` to select another runtime mode.
 - `install.sh --mode all|http|https|grpc` selects which services are active by writing `COMPOSE_PROFILES` to `.env`.
 - gRPC modes start `api-grpc` with 3 replicas by default through `PII_GRPC_SCALE=3` and HAProxy LB.
+- This CPU/PyTorch package supports at most 3 gRPC replicas.
+- Runtime images exclude compiler/CMake packages and Python test/development files.
 - `docker-compose.yml` is the single runtime compose file for HTTP, HTTPS, gRPC, and HAProxy.
 - `install.sh` creates a self-signed HTTPS certificate if `certs/tls.crt` and `certs/tls.key` are missing.
 - Use `docker compose up -d` for start/restart and `docker compose down` for stop.
@@ -424,8 +431,8 @@ if [[ "${INCLUDE_HTTPS}" == "true" || "${HTTPS_ONLY}" == "true" ]]; then
   exit 1
 fi
 
-if ! [[ "${GRPC_SCALE}" =~ ^[0-9]+$ ]] || [[ "${GRPC_SCALE}" -lt 1 ]]; then
-  echo "grpc scale must be a positive integer" >&2
+if ! [[ "${GRPC_SCALE}" =~ ^[0-9]+$ ]] || [[ "${GRPC_SCALE}" -lt 1 ]] || [[ "${GRPC_SCALE}" -gt 3 ]]; then
+  echo "grpc scale must be an integer between 1 and 3" >&2
   exit 1
 fi
 
@@ -540,6 +547,8 @@ docker save -o "${IMAGE_ARCHIVE}" "${IMAGES[@]}"
   echo "app_version=${APP_VERSION}"
   echo "mode=${MODE}"
   echo "runtime_modes=all,http,https,grpc"
+  echo "runtime_backend=cpu-pytorch"
+  echo "runtime_pruning=build-toolchain,python-tests,torch-development-files"
   echo "grpc_scale=${GRPC_SCALE}"
   echo "include_http=true"
   echo "include_https=true"

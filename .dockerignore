@@ -12,3 +12,6 @@ build/
 dist/
 logs/
 tmp_long_payload.txt
+Dockerfile.grpc.onnx-*
+app/pii_engine/onnx_embedder.py
+scripts/*onnx*.py

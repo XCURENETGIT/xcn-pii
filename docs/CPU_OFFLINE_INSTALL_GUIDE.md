@@ -2,7 +2,7 @@
 
 이 문서는 `xcn-pii` CPU 전용 배포 패키지를 신규 Linux 서버에 설치하는 절차서입니다.
 
-현재 기준 버전은 `VERSION` 파일 값을 따릅니다. 2026-06-18 기준 최신 배포 패키지 예시는 `1.0.4`입니다.
+현재 기준 버전은 `VERSION` 파일 값을 따릅니다. 2026-07-24 기준 최신 배포 패키지 예시는 `1.0.6`입니다.
 
 ## 1. 배포 패키지
 
@@ -15,7 +15,7 @@
 예:
 
 ```bash
-/data01/xcn-pii-packages/xcn-pii-all-cpu-package-1.0.4-20260618-170928.tar.gz
+/data01/xcn-pii-packages/xcn-pii-all-cpu-package-1.0.6-20260724-141208.tar.gz
 ```
 
 패키지는 단일 `all-cpu` 형식만 사용합니다. `install.sh`는 옵션이 없으면 gRPC 모드로 설치합니다. 단일 패키지 안에서 `install.sh --mode all|http|https|grpc` 옵션으로 HTTP, HTTPS, gRPC 실행 모드를 선택할 수 있습니다. gRPC 모드는 기본적으로 `PII_GRPC_SCALE=3`을 사용해 `api-grpc`를 3 replica로 기동하고 HAProxy LB가 `50055` 포트에서 분산 처리합니다.
@@ -33,6 +33,8 @@
 - 패키지 안내 파일: `README.md`
 
 GPU/CUDA/NVIDIA 관련 런타임은 포함하지 않습니다. 문맥 탐지용 PyTorch도 CPU wheel(`torch==2.3.1+cpu`) 기준으로 빌드합니다.
+
+`1.0.6`부터 HTTP와 gRPC 이미지는 동일한 CPU/PyTorch 런타임 계층을 공유합니다. 최종 런타임 이미지에는 빌드에만 필요한 `gcc`, `g++`, `cmake`를 포함하지 않으며, PyTorch C++ 헤더와 패키지 테스트 파일도 제거합니다. FastAPI/Uvicorn 같은 HTTP 전용 의존성은 gRPC 이미지에 설치하지 않습니다. HTTP 이미지의 `grpcio`와 `protobuf`는 `/grpc/test` 연동 점검 API가 사용하므로 유지합니다. ONNX Runtime과 ONNX 실험 모델은 운영 패키지에 포함하지 않습니다.
 
 패키지에는 운영 인증서나 외부 시크릿을 기본 포함하지 않습니다. `install.sh`는 `certs/tls.crt`, `certs/tls.key`가 없으면 자체서명 인증서를 생성합니다. 운영 인증서를 사용하려면 `docker compose up -d` 실행 전에 `certs/tls.crt`, `certs/tls.key`로 배치합니다.
 
@@ -76,14 +78,14 @@ tar --version
 예:
 
 ```bash
-scp /data01/xcn-pii-packages/xcn-pii-all-cpu-package-1.0.4-20260618-170928.tar.gz root@<NEW_SERVER_IP>:/data01/
+scp /data01/xcn-pii-packages/xcn-pii-all-cpu-package-1.0.6-20260724-141208.tar.gz root@<NEW_SERVER_IP>:/data01/
 ```
 
 신규 서버에서 파일 확인:
 
 ```bash
 cd /data01
-ls -lh xcn-pii-all-cpu-package-1.0.4-20260618-170928.tar.gz
+ls -lh xcn-pii-all-cpu-package-1.0.6-20260724-141208.tar.gz
 ```
 
 ## 4. 압축 해제
@@ -92,7 +94,7 @@ ls -lh xcn-pii-all-cpu-package-1.0.4-20260618-170928.tar.gz
 
 ```bash
 cd /data01
-tar -xzf xcn-pii-all-cpu-package-1.0.4-20260618-170928.tar.gz
+tar -xzf xcn-pii-all-cpu-package-1.0.6-20260724-141208.tar.gz
 cd xcn-pii
 ```
 
@@ -222,7 +224,7 @@ grpcurl -plaintext \
 
 ```bash
 PII_IMAGE_REPO=xcn-pii
-PII_IMAGE_TAG=1.0.4
+PII_IMAGE_TAG=1.0.6
 PII_GRPC_SCALE=3
 PII_RULESET=default
 PII_HTTP_MAX_UPLOAD_MB=100
@@ -312,7 +314,7 @@ docker compose down
 
 ```bash
 cd /data01
-tar -xzf xcn-pii-all-cpu-package-1.0.4-20260618-170928.tar.gz
+tar -xzf xcn-pii-all-cpu-package-1.0.6-20260724-141208.tar.gz
 cd xcn-pii
 ./install.sh --no-start
 docker compose up -d
@@ -332,13 +334,13 @@ cp -a /old/install/path/certs /new/install/path/certs
 외부 빌드 서버에서 기준 이미지 기준 manifest를 생성합니다.
 
 ```bash
-cd /data01/xcn-pii-build-1.0.4
+cd /data01/xcn-pii-build-1.0.6
 python tools/build_runtime_manifest.py \
-  --from-image xcn-pii/api-http-cpu:1.0.4 \
+  --from-image xcn-pii/api-http-cpu:1.0.6 \
   --profile http-cpu \
-  --version 1.0.4 \
+  --version 1.0.6 \
   --require-so \
-  --output dist/manifests/base-http-cpu-1.0.4.json
+  --output dist/manifests/base-http-cpu-1.0.6.json
 ```
 
 변경 버전 이미지에서 패치 번들을 생성합니다.
@@ -346,27 +348,27 @@ python tools/build_runtime_manifest.py \
 ```bash
 python tools/build_patch_bundle.py \
   --profile http-cpu \
-  --from-image xcn-pii/api-http-cpu:1.0.4-patch1 \
-  --version 1.0.4-patch1 \
-  --base-image xcn-pii/api-http-cpu:1.0.4 \
-  --target-image xcn-pii/api-http-cpu:1.0.4-patch1 \
-  --base-manifest dist/manifests/base-http-cpu-1.0.4.json
+  --from-image xcn-pii/api-http-cpu:1.0.6-patch1 \
+  --version 1.0.6-patch1 \
+  --base-image xcn-pii/api-http-cpu:1.0.6 \
+  --target-image xcn-pii/api-http-cpu:1.0.6-patch1 \
+  --base-manifest dist/manifests/base-http-cpu-1.0.6.json
 ```
 
 폐쇄망 서버에서는 기준 이미지가 있는 상태에서 새 이미지 레이어를 만듭니다.
 
 ```bash
-tar -xzf patch-http-cpu-1.0.4-patch1.tar.gz
-./patch-http-cpu-1.0.4-patch1/build_patched_image.sh \
-  ./patch-http-cpu-1.0.4-patch1 \
-  xcn-pii/api-http-cpu:1.0.4 \
-  xcn-pii/api-http-cpu:1.0.4-patch1
+tar -xzf patch-http-cpu-1.0.6-patch1.tar.gz
+./patch-http-cpu-1.0.6-patch1/build_patched_image.sh \
+  ./patch-http-cpu-1.0.6-patch1 \
+  xcn-pii/api-http-cpu:1.0.6 \
+  xcn-pii/api-http-cpu:1.0.6-patch1
 ```
 
 이후 `.env`의 `PII_IMAGE_TAG`를 새 태그로 바꾸고 재기동합니다.
 
 ```bash
-PII_IMAGE_TAG=1.0.4-patch1
+PII_IMAGE_TAG=1.0.6-patch1
 docker compose down
 docker compose up -d
 ```
@@ -444,7 +446,7 @@ docker logs --tail=300 xcn-pii-grpc-lb
 빌드 서버에서 패키지를 다시 만들 때:
 
 ```bash
-cd /data01/xcn-pii-build-1.0.4
+cd /data01/xcn-pii-build-1.0.6
 docker compose -f docker-compose.http-cpu.yml --profile http build api
 docker compose -f docker-compose.grpc-cpu.yml --profile grpc build api-grpc
 docker pull haproxy:3.1-alpine
@@ -458,7 +460,7 @@ docker pull nginx:1.27-alpine
 ./scripts/package_deploy_bundle.sh --no-hf-cache --output-dir /data01/xcn-pii-packages
 ```
 
-앱 Docker 이미지는 `VERSION` 파일 값을 태그로 사용합니다. `VERSION=1.0.4`이면 번들 내부 이미지와 `.env.package`는 `xcn-pii/*:1.0.4`를 기준으로 생성됩니다.
+앱 Docker 이미지는 `VERSION` 파일 값을 태그로 사용합니다. `VERSION=1.0.6`이면 번들 내부 이미지와 `.env.package`는 `xcn-pii/*:1.0.6`을 기준으로 생성됩니다.
 
 기본적으로 `xcn-pii_hf_cache` Docker volume의 HuggingFace 모델 캐시가 포함됩니다. 캐시가 없으면 패키징이 실패하므로, 운영 서버에서 CPU 서비스를 한 번 기동하고 문맥 필터가 동작하는 탐지 요청을 실행해 모델 다운로드/초기화를 완료한 뒤 다시 실행합니다.
 
@@ -473,10 +475,10 @@ docker pull nginx:1.27-alpine
 CPU 전용 이미지 검증:
 
 ```bash
-docker run --rm --entrypoint python xcn-pii/api-http-cpu:1.0.4 \
+docker run --rm --entrypoint python xcn-pii/api-http-cpu:1.0.6 \
   -c 'import torch; print(torch.__version__); print(torch.cuda.is_available())'
 
-docker run --rm --entrypoint python xcn-pii/api-http-cpu:1.0.4 \
+docker run --rm --entrypoint python xcn-pii/api-http-cpu:1.0.6 \
   -m pip freeze | grep -Ei 'nvidia|cuda|cudnn|cublas|cufft|curand|cusolver|cusparse|nccl|triton' || echo no_gpu_deps
 ```
 
