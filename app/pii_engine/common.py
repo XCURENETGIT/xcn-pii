@@ -410,6 +410,25 @@ def _resolve_cross_type_overlaps(out: Dict[str, List[dict]]) -> None:
     if not candidates:
         return
 
+    # A Vietnamese passport is also matched by the broader generic passport
+    # detector. When both detectors accepted the exact same span, keep the
+    # country-specific result even if the generic context score is marginally
+    # higher.
+    accepted_vn_passport_spans = {
+        (it["start"], it["end"])
+        for _, key, it in candidates
+        if key == "VN_PN" and _context_overlap_score(it)[0] > 0
+    }
+    if accepted_vn_passport_spans:
+        candidates = [
+            candidate
+            for candidate in candidates
+            if not (
+                candidate[1] == "PN"
+                and (candidate[2]["start"], candidate[2]["end"]) in accepted_vn_passport_spans
+            )
+        ]
+
     selected: List[Tuple[int, int, str, dict]] = []
     kept_by_key: Dict[str, List[dict]] = {key: [] for key in _CROSS_TYPE_OVERLAP_KEYS}
     for _, key, it in sorted(candidates, key=lambda x: x[0], reverse=True):
