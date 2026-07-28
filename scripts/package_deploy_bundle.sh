@@ -178,7 +178,7 @@ write_sanitized_env() {
     echo "PII_GRPC_SCALE=${GRPC_SCALE}"
     echo "PII_GRPC_MAX_WORKERS=${PII_GRPC_MAX_WORKERS:-7}"
     echo "PII_DETECT_PROCESS_WORKERS=${PII_DETECT_PROCESS_WORKERS:-4}"
-    echo "PII_DETECT_QUEUE_LIMIT=${PII_DETECT_QUEUE_LIMIT:-2}"
+    echo "PII_DETECT_QUEUE_LIMIT=${PII_DETECT_QUEUE_LIMIT:-1}"
     echo "PII_SPLIT_MAX_WORKERS=${PII_SPLIT_MAX_WORKERS:-1}"
     echo "PII_CONTEXT_RULE_FIRST_ENABLED=${PII_CONTEXT_RULE_FIRST_ENABLED:-true}"
     echo "PII_CONTEXT_EMBED_NORMALIZE_DIGITS=${PII_CONTEXT_EMBED_NORMALIZE_DIGITS:-true}"
@@ -403,6 +403,7 @@ Notes:
 - `install.sh` defaults to gRPC mode. Use `--mode all|http|https|grpc` to select another runtime mode.
 - `install.sh --mode all|http|https|grpc` selects which services are active by writing `COMPOSE_PROFILES` to `.env`.
 - gRPC modes start `api-grpc` with 3 replicas by default through `PII_GRPC_SCALE=3` and HAProxy LB.
+- Each gRPC replica runs 4 detector processes and accepts 1 waiting request by default.
 - This CPU/PyTorch package supports at most 3 gRPC replicas.
 - Runtime images exclude compiler/CMake packages and Python test/development files.
 - `docker-compose.yml` is the single runtime compose file for HTTP, HTTPS, gRPC, and HAProxy.

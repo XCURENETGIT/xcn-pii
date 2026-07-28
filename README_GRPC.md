@@ -31,7 +31,7 @@ Environment:
 - `PII_GRPC_KEEPALIVE_TIMEOUT_MS` (default `10000`)
 - `PII_GRPC_MAX_CONCURRENT_RPCS` (default `0`, effective handler thread 수로 자동 제한)
 - `PII_DETECT_PROCESS_WORKERS` (default `4`, 실제 탐지 process 수)
-- `PII_DETECT_QUEUE_LIMIT` (default `2`, 허용값 `1` 또는 `2`)
+- `PII_DETECT_QUEUE_LIMIT` (default `1`, 허용값 `1` 또는 `2`)
 - `PII_GRPC_SO_REUSEPORT` (default `true`)
 - `GRPC_INSTALL_SEMANTIC` (default `true`)
 - `PII_HS_COMBINED_ENABLED` (default `true`)
@@ -77,7 +77,7 @@ Recommended starting point:
 
 - `PII_GRPC_MAX_WORKERS=7`
 - `PII_DETECT_PROCESS_WORKERS=4`
-- `PII_DETECT_QUEUE_LIMIT=2`
+- `PII_DETECT_QUEUE_LIMIT=1`
 - `PII_HS_COMBINED_ENABLED=true`
 - `PII_CONTEXT_EMBED_MAX_CHARS=256`
 - semantic context target keys: `SN, SSN, DN, PN, BN`
@@ -107,8 +107,8 @@ Current production-oriented baseline:
 - semantic model: `sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2`
 - semantic context target keys: `SN, SSN, DN, PN, BN`
 - excluded from semantic context: `MN, EML`
-- direct mode recommendation: `api-grpc=1`, 탐지 process `4`, 대기 `2`
-- LB mode recommendation: `api-grpc=3` (총 탐지 동시 실행 `12`, 총 대기 최대 `6`)
+- direct mode recommendation: `api-grpc=1`, 탐지 process `4`, 대기 `1`
+- LB mode recommendation: `api-grpc=3` (총 탐지 동시 실행 `12`, 총 대기 최대 `3`)
 
 Recent benchmark reference:
 

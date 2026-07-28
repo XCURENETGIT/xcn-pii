@@ -217,7 +217,7 @@ def _detect_process_context() -> mp.context.BaseContext:
 
 
 class DetectWorkerPool:
-    def __init__(self, size: int, queue_limit: int = 2) -> None:
+    def __init__(self, size: int, queue_limit: int = 1) -> None:
         self.size = max(1, int(size))
         self.queue_limit = min(2, max(1, int(queue_limit)))
         self.capacity = self.size + self.queue_limit
@@ -454,7 +454,7 @@ def serve() -> None:
     configured_max_workers = max(1, _env_int("PII_GRPC_MAX_WORKERS", 7))
     detect_timeout_sec = max(0.1, _env_float("PII_DETECT_TIMEOUT_SEC", 10.0))
     detect_process_workers = max(1, _env_int("PII_DETECT_PROCESS_WORKERS", 4))
-    detect_queue_limit = min(2, max(1, _env_int("PII_DETECT_QUEUE_LIMIT", 2)))
+    detect_queue_limit = min(2, max(1, _env_int("PII_DETECT_QUEUE_LIMIT", 1)))
     detect_worker_pool = DetectWorkerPool(detect_process_workers, detect_queue_limit)
     max_workers = max(configured_max_workers, detect_worker_pool.capacity + 1)
     logger.info(

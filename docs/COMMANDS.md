@@ -35,7 +35,7 @@ cp .env.example .env
 | `PII_RULESET` | `default` | 기본 룰셋 |
 | `PII_GRPC_MAX_WORKERS` | `7` | gRPC handler thread 수 |
 | `PII_DETECT_PROCESS_WORKERS` | `4` | 인스턴스별 실제 탐지 process 수 |
-| `PII_DETECT_QUEUE_LIMIT` | `2` | 인스턴스별 탐지 대기 한도 (`1` 또는 `2`) |
+| `PII_DETECT_QUEUE_LIMIT` | `1` | 인스턴스별 탐지 대기 한도 (`1` 또는 `2`) |
 | `PII_HS_COMBINED_ENABLED` | `true` | Hyperscan combined DB 사용 |
 | `PII_CONTEXT_EMBED_MAX_CHARS` | `256` | 문맥 임베딩 대상 최대 길이 |
 | `PII_EMBED_DEVICE` | `cpu` | 임베딩 장치. CPU 전용으로 고정 |
