@@ -487,6 +487,9 @@ grpcurl -plaintext \
 - 매우 긴 텍스트는 애플리케이션 레벨에서 분할 전송을 권장
 - `status=200`, `success=true` 여부를 함께 확인
 - 결과 배열이 없거나 필드가 누락된 경우 "해당 타입 결과 없음"으로 처리
+- gRPC `RESOURCE_EXHAUSTED`는 서버 처리/대기 용량이 모두 사용 중이라는 의미다.
+  즉시 재시도하지 말고 backoff 후 재시도한다. 애플리케이션 큐에서 거절된 경우
+  trailing metadata의 `x-pii-error-code=PII_QUEUE_FULL`과 `retry-after-ms`를 함께 확인할 수 있다.
 
 ## Operational Notes
 

@@ -2,7 +2,8 @@
 
 이 문서는 `xcn-pii` CPU 전용 배포 패키지를 신규 Linux 서버에 설치하는 절차서입니다.
 
-현재 기준 버전은 `VERSION` 파일 값을 따릅니다. 2026-07-24 기준 최신 배포 패키지 예시는 `1.0.6`입니다.
+현재 기준 버전은 `VERSION` 파일 값을 따릅니다. 아래 전체 배포 패키지 명령 예시는
+2026-07-24에 생성한 `1.0.6` 패키지를 기준으로 하며, 현재 애플리케이션 버전은 `1.0.7`입니다.
 
 ## 1. 배포 패키지
 
@@ -224,8 +225,11 @@ grpcurl -plaintext \
 
 ```bash
 PII_IMAGE_REPO=xcn-pii
-PII_IMAGE_TAG=1.0.6
+PII_IMAGE_TAG=1.0.7
 PII_GRPC_SCALE=3
+PII_GRPC_MAX_WORKERS=7
+PII_DETECT_PROCESS_WORKERS=4
+PII_DETECT_QUEUE_LIMIT=2
 PII_RULESET=default
 PII_HTTP_MAX_UPLOAD_MB=100
 PII_MODEL_PRELOAD_ENABLED=true
@@ -234,7 +238,10 @@ PII_HF_OFFLINE=true
 PII_LOG_LEVEL=INFO
 ```
 
-`PII_GRPC_SCALE` 값을 변경하면 다음 `docker compose up -d` 시 `api-grpc` replica 수가 해당 값으로 적용됩니다. 기본 HAProxy 설정은 3개 backend 기준으로 제공되므로 운영 기본값은 `3` 사용을 권장합니다.
+`PII_GRPC_SCALE` 값을 변경하면 다음 `docker compose up -d` 시 `api-grpc` replica 수가 해당 값으로 적용됩니다.
+기본 HAProxy 설정은 Docker DNS에서 최대 3개 backend를 동적으로 검색하므로 운영 기본값은 `3` 사용을 권장합니다.
+인스턴스별 실제 탐지 동시 실행 수는 `PII_DETECT_PROCESS_WORKERS=4`, 대기 한도는
+`PII_DETECT_QUEUE_LIMIT=1` 또는 `2`로 설정합니다.
 
 설정을 변경하려면 `.env` 수정 후 재기동합니다.
 
@@ -460,7 +467,8 @@ docker pull nginx:1.27-alpine
 ./scripts/package_deploy_bundle.sh --no-hf-cache --output-dir /data01/xcn-pii-packages
 ```
 
-앱 Docker 이미지는 `VERSION` 파일 값을 태그로 사용합니다. `VERSION=1.0.6`이면 번들 내부 이미지와 `.env.package`는 `xcn-pii/*:1.0.6`을 기준으로 생성됩니다.
+앱 Docker 이미지는 `VERSION` 파일 값을 태그로 사용합니다. 예를 들어 `VERSION=1.0.7`이면
+번들 내부 이미지와 `.env.package`는 `xcn-pii/*:1.0.7`을 기준으로 생성됩니다.
 
 기본적으로 `xcn-pii_hf_cache` Docker volume의 HuggingFace 모델 캐시가 포함됩니다. 캐시가 없으면 패키징이 실패하므로, 운영 서버에서 CPU 서비스를 한 번 기동하고 문맥 필터가 동작하는 탐지 요청을 실행해 모델 다운로드/초기화를 완료한 뒤 다시 실행합니다.
 

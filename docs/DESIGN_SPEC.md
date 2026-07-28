@@ -547,7 +547,12 @@ Hyperscan을 우선 사용하고, 지원하지 않는 패턴은 Python regex로 
 
 ### 13.3 gRPC 성능
 
-gRPC는 worker 수와 replica 수를 조정할 수 있다. `scripts/grpc_benchmark.py`로 throughput, p50, p95, p99 latency를 측정한다.
+gRPC는 탐지 process 수와 replica 수를 조정할 수 있다. 운영 기본값은 인스턴스당 탐지
+process `4`, 대기 큐 `2`, replica `3`이며 총 12건을 동시에 탐지하고 최대 6건을
+대기시킨다. 큐 포화 요청은 gRPC `RESOURCE_EXHAUSTED`로 즉시 거절한다.
+HAProxy는 `leastconn`, HTTP/2 backend connection reuse, Docker DNS
+`server-template`을 사용해 단일 장기 gRPC 채널의 RPC도 세 backend로 분산한다.
+`scripts/grpc_benchmark.py`로 throughput, p50, p95, p99 latency를 측정한다.
 
 ## 14. 보안 설계
 
@@ -604,7 +609,9 @@ TLS private key가 저장소에 포함되지 않도록 `certs/`는 `.gitignore`�
 | `PII_CONTEXT_EMBED_MAX_CHARS` | `256` | context embedding 최대 길이 |
 | `PII_SPLIT_ENABLED` | `true` | 긴 텍스트 split |
 | `PII_FASTPATH_ENABLED` | `true` | 긴 텍스트 fast-path |
-| `PII_GRPC_MAX_WORKERS` | `6` | gRPC worker 수 |
+| `PII_GRPC_MAX_WORKERS` | `7` | gRPC handler thread 수 |
+| `PII_DETECT_PROCESS_WORKERS` | `4` | 인스턴스별 실제 탐지 process 수 |
+| `PII_DETECT_QUEUE_LIMIT` | `2` | 인스턴스별 탐지 대기 한도 (`1` 또는 `2`) |
 | `PII_HTTPS_PORT` | `28443` | HTTPS 외부 포트 |
 | `PII_LOG_LEVEL` | `INFO` | 로그 레벨 |
 

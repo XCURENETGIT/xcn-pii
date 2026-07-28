@@ -25,11 +25,13 @@ Environment:
 
 - `PII_GRPC_HOST` (default `0.0.0.0`)
 - `PII_GRPC_PORT` (default `50051`)
-- `PII_GRPC_MAX_WORKERS` (default `6`)
+- `PII_GRPC_MAX_WORKERS` (default `7`, gRPC handler thread 수)
 - `PII_GRPC_MAX_CONCURRENT_STREAMS` (default `1024`)
 - `PII_GRPC_KEEPALIVE_TIME_MS` (default `30000`)
 - `PII_GRPC_KEEPALIVE_TIMEOUT_MS` (default `10000`)
-- `PII_GRPC_MAX_CONCURRENT_RPCS` (default `0`, unlimited)
+- `PII_GRPC_MAX_CONCURRENT_RPCS` (default `0`, effective handler thread 수로 자동 제한)
+- `PII_DETECT_PROCESS_WORKERS` (default `4`, 실제 탐지 process 수)
+- `PII_DETECT_QUEUE_LIMIT` (default `2`, 허용값 `1` 또는 `2`)
 - `PII_GRPC_SO_REUSEPORT` (default `true`)
 - `GRPC_INSTALL_SEMANTIC` (default `true`)
 - `PII_HS_COMBINED_ENABLED` (default `true`)
@@ -73,7 +75,9 @@ docker compose --profile grpc up -d --scale api-grpc=3 api-grpc
 
 Recommended starting point:
 
-- `PII_GRPC_MAX_WORKERS=6`
+- `PII_GRPC_MAX_WORKERS=7`
+- `PII_DETECT_PROCESS_WORKERS=4`
+- `PII_DETECT_QUEUE_LIMIT=2`
 - `PII_HS_COMBINED_ENABLED=true`
 - `PII_CONTEXT_EMBED_MAX_CHARS=256`
 - semantic context target keys: `SN, SSN, DN, PN, BN`
@@ -90,6 +94,11 @@ Notes:
 - gRPC runtime no longer compiles proto at startup; generated stubs are checked into `app/proto/`.
 - Semantic embedding packages are included in the default gRPC build.
 - For current tuning, use direct mode for `1` replica and LB mode for `3` replicas.
+- LB 모드의 HAProxy는 `leastconn`, HTTP/2 backend connection reuse, Docker DNS 기반
+  `server-template`을 사용한다. 단일 장기 gRPC 채널의 RPC도 세 backend로 분산된다.
+- 인스턴스별 동시 탐지는 `4`, 대기는 최대 `1~2`건이다. 대기 큐가 가득 차면
+  `RESOURCE_EXHAUSTED`가 반환되며, 애플리케이션에서 거절한 요청은 trailing metadata
+  `x-pii-error-code=PII_QUEUE_FULL`도 제공한다.
 
 ## Current Baseline
 
@@ -98,8 +107,8 @@ Current production-oriented baseline:
 - semantic model: `sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2`
 - semantic context target keys: `SN, SSN, DN, PN, BN`
 - excluded from semantic context: `MN, EML`
-- direct mode recommendation: `api-grpc=1`, `PII_GRPC_MAX_WORKERS=6`
-- LB mode recommendation: `api-grpc=3`
+- direct mode recommendation: `api-grpc=1`, 탐지 process `4`, 대기 `2`
+- LB mode recommendation: `api-grpc=3` (총 탐지 동시 실행 `12`, 총 대기 최대 `6`)
 
 Recent benchmark reference:
 

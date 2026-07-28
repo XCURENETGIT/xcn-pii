@@ -28,6 +28,17 @@ class DetectTimeoutError(TimeoutError):
     pass
 
 
+class DetectQueueFullError(RuntimeError):
+    def __init__(self, *, workers: int, queue_limit: int, in_flight: int) -> None:
+        self.workers = int(workers)
+        self.queue_limit = int(queue_limit)
+        self.in_flight = int(in_flight)
+        super().__init__(
+            f"PII detect queue is full; workers={self.workers} "
+            f"waiting_limit={self.queue_limit} in_flight={self.in_flight}"
+        )
+
+
 def _env(name: str, default: str) -> str:
     v = os.getenv(name)
     return v.strip() if v and v.strip() else default
@@ -206,10 +217,15 @@ def _detect_process_context() -> mp.context.BaseContext:
 
 
 class DetectWorkerPool:
-    def __init__(self, size: int) -> None:
+    def __init__(self, size: int, queue_limit: int = 2) -> None:
         self.size = max(1, int(size))
+        self.queue_limit = min(2, max(1, int(queue_limit)))
+        self.capacity = self.size + self.queue_limit
         self.ctx = _detect_process_context()
         self._lock = threading.Lock()
+        self._admission_lock = threading.Lock()
+        self._admission = threading.BoundedSemaphore(self.capacity)
+        self._in_flight = 0
         self._available: queue.Queue[int] = queue.Queue()
         self._workers: list[dict[str, Any]] = []
         for idx in range(self.size):
@@ -323,39 +339,67 @@ class DetectWorkerPool:
         )
         replacement_thread.start()
 
+    def status(self) -> dict[str, int]:
+        with self._admission_lock:
+            in_flight = self._in_flight
+        return {
+            "workers": self.size,
+            "active": min(self.size, in_flight),
+            "waiting": max(0, in_flight - self.size),
+            "waiting_limit": self.queue_limit,
+            "capacity": self.capacity,
+            "in_flight": in_flight,
+        }
+
     def run(self, text: str, max_results_per_type: int, ruleset: str | None, timeout_sec: float) -> tuple[dict, dict]:
-        idx = self._available.get()
-        worker = self._workers[idx]
-        task_id = f"{idx}-{time.monotonic_ns()}"
-        timed_out = False
+        with self._admission_lock:
+            admitted = self._admission.acquire(blocking=False)
+            if admitted:
+                self._in_flight += 1
+            in_flight = self._in_flight
+        if not admitted:
+            raise DetectQueueFullError(
+                workers=self.size,
+                queue_limit=self.queue_limit,
+                in_flight=in_flight,
+            )
         try:
-            self._drain(worker["result_queue"])
-            worker["task_queue"].put((task_id, text, max_results_per_type, ruleset))
-            deadline = time.monotonic() + timeout_sec
-            while True:
-                remaining = deadline - time.monotonic()
-                if remaining <= 0:
-                    timed_out = True
-                    self._schedule_worker_replacement(idx, worker)
-                    raise DetectTimeoutError(
-                        f"PII detection exceeded {timeout_sec:.1f}s timeout; worker index={idx} terminated"
-                    )
-                try:
-                    result_task_id, status, first, second = worker["result_queue"].get(timeout=remaining)
-                except queue.Empty:
-                    timed_out = True
-                    self._schedule_worker_replacement(idx, worker)
-                    raise DetectTimeoutError(
-                        f"PII detection exceeded {timeout_sec:.1f}s timeout; worker index={idx} terminated"
-                    )
-                if result_task_id != task_id:
-                    continue
-                if status == "ok":
-                    return first, second
-                raise RuntimeError(f"PII detection worker failed: {first}\n{second}")
+            idx = self._available.get()
+            worker = self._workers[idx]
+            task_id = f"{idx}-{time.monotonic_ns()}"
+            timed_out = False
+            try:
+                self._drain(worker["result_queue"])
+                worker["task_queue"].put((task_id, text, max_results_per_type, ruleset))
+                deadline = time.monotonic() + timeout_sec
+                while True:
+                    remaining = deadline - time.monotonic()
+                    if remaining <= 0:
+                        timed_out = True
+                        self._schedule_worker_replacement(idx, worker)
+                        raise DetectTimeoutError(
+                            f"PII detection exceeded {timeout_sec:.1f}s timeout; worker index={idx} terminated"
+                        )
+                    try:
+                        result_task_id, status, first, second = worker["result_queue"].get(timeout=remaining)
+                    except queue.Empty:
+                        timed_out = True
+                        self._schedule_worker_replacement(idx, worker)
+                        raise DetectTimeoutError(
+                            f"PII detection exceeded {timeout_sec:.1f}s timeout; worker index={idx} terminated"
+                        )
+                    if result_task_id != task_id:
+                        continue
+                    if status == "ok":
+                        return first, second
+                    raise RuntimeError(f"PII detection worker failed: {first}\n{second}")
+            finally:
+                if not timed_out:
+                    self._available.put(idx)
         finally:
-            if not timed_out:
-                self._available.put(idx)
+            with self._admission_lock:
+                self._in_flight -= 1
+                self._admission.release()
 
 
 def _detect_with_process_timeout(pool: DetectWorkerPool, text: str, max_results_per_type: int, ruleset: str | None, timeout_sec: float) -> tuple[dict, dict]:
@@ -407,12 +451,18 @@ def serve() -> None:
     elif use_process_timeout:
         logger.info("PII model preload will run inside detect worker processes")
 
-    max_workers = max(1, _env_int("PII_GRPC_MAX_WORKERS", 6))
+    configured_max_workers = max(1, _env_int("PII_GRPC_MAX_WORKERS", 7))
     detect_timeout_sec = max(0.1, _env_float("PII_DETECT_TIMEOUT_SEC", 10.0))
-    detect_worker_pool = DetectWorkerPool(_env_int("PII_DETECT_PROCESS_WORKERS", 4))
+    detect_process_workers = max(1, _env_int("PII_DETECT_PROCESS_WORKERS", 4))
+    detect_queue_limit = min(2, max(1, _env_int("PII_DETECT_QUEUE_LIMIT", 2)))
+    detect_worker_pool = DetectWorkerPool(detect_process_workers, detect_queue_limit)
+    max_workers = max(configured_max_workers, detect_worker_pool.capacity + 1)
     logger.info(
-        "PII detect worker process pool started. workers=%d timeout_sec=%.1f start_method=%s",
+        "PII detect worker process pool started. workers=%d waiting_limit=%d capacity=%d "
+        "timeout_sec=%.1f start_method=%s",
         detect_worker_pool.size,
+        detect_worker_pool.queue_limit,
+        detect_worker_pool.capacity,
         detect_timeout_sec,
         _detect_process_context().get_start_method(),
     )
@@ -434,6 +484,35 @@ def serve() -> None:
                         max_results_per_type,
                         ruleset,
                         detect_timeout_sec,
+                    )
+                except DetectQueueFullError as exc:
+                    total_ms = (time.perf_counter() - t0) * 1000.0
+                    logger.warning(
+                        "[queue-full] api=grpc method=Detect req=%s status=429 total_ms=%.1f "
+                        "workers=%d waiting_limit=%d in_flight=%d chars=%d bytes=%d "
+                        "max_results=%d ruleset=%s",
+                        req_id,
+                        total_ms,
+                        exc.workers,
+                        exc.queue_limit,
+                        exc.in_flight,
+                        len(text),
+                        len(text.encode("utf-8", errors="ignore")),
+                        max_results_per_type,
+                        ruleset or os.getenv("PII_RULESET", "default"),
+                    )
+                    context.set_code(grpc.StatusCode.RESOURCE_EXHAUSTED)
+                    context.set_details("PII detect queue is full")
+                    context.set_trailing_metadata(
+                        (
+                            ("x-pii-error-code", "PII_QUEUE_FULL"),
+                            ("retry-after-ms", "1000"),
+                        )
+                    )
+                    return pii_pb2.DetectResponse(
+                        success=False,
+                        status=429,
+                        message="PII detect queue is full",
                     )
                 except DetectTimeoutError as exc:
                     total_ms = (time.perf_counter() - t0) * 1000.0
@@ -544,7 +623,12 @@ def serve() -> None:
     max_concurrent_streams = max(1, _env_int("PII_GRPC_MAX_CONCURRENT_STREAMS", 1024))
     keepalive_time_ms = max(1000, _env_int("PII_GRPC_KEEPALIVE_TIME_MS", 30000))
     keepalive_timeout_ms = max(1000, _env_int("PII_GRPC_KEEPALIVE_TIMEOUT_MS", 10000))
-    max_concurrent_rpcs = _env_int("PII_GRPC_MAX_CONCURRENT_RPCS", 0)
+    configured_max_concurrent_rpcs = _env_int("PII_GRPC_MAX_CONCURRENT_RPCS", 0)
+    max_concurrent_rpcs = (
+        min(max_workers, max(1, configured_max_concurrent_rpcs))
+        if configured_max_concurrent_rpcs > 0
+        else max_workers
+    )
     host = _env("PII_GRPC_HOST", "0.0.0.0")
     port = _env_int("PII_GRPC_PORT", 50051)
     bind = f"{host}:{port}"
@@ -557,23 +641,22 @@ def serve() -> None:
         ("grpc.http2.max_pings_without_data", 0),
     ]
 
-    kwargs = {}
-    if max_concurrent_rpcs > 0:
-        kwargs["maximum_concurrent_rpcs"] = max_concurrent_rpcs
     server = grpc.server(
         futures.ThreadPoolExecutor(max_workers=max_workers),
         options=options,
-        **kwargs,
+        maximum_concurrent_rpcs=max_concurrent_rpcs,
     )
     pii_pb2_grpc.add_PiiDetectorServicer_to_server(PiiDetectorServicer(), server)
     server.add_insecure_port(bind)
     server.start()
     logger.info(
-        "gRPC server started on %s workers=%d max_streams=%d max_rpcs=%s reuseport=%s",
+        "gRPC server started on %s handler_workers=%d configured_handler_workers=%d "
+        "max_streams=%d max_rpcs=%d reuseport=%s",
         bind,
         max_workers,
+        configured_max_workers,
         max_concurrent_streams,
-        str(max_concurrent_rpcs) if max_concurrent_rpcs > 0 else "unlimited",
+        max_concurrent_rpcs,
         str(_env_bool("PII_GRPC_SO_REUSEPORT", True)).lower(),
     )
     server.wait_for_termination()
