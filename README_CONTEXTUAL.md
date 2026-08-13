@@ -33,13 +33,16 @@ context:
   enabled: true
   method: embed    # eembede for sentence-transformers semantic filter, ekeyworde for simple keywords
   model_name: jhgan/ko-sbert-multitask
-  sim_threshold: 0.55
+  sim_threshold: 0.55  # normalized positive-minus-negative similarity margin
   window_sentences: 2
-  target_keys: [SN,SSN,DN,PN,MN,BN,CN,EML]
+  target_keys: [SN,FN,SSN,DN,PN,BRN,BN,CN]
 ```
 
 Notes & recommendations
 
 - `jhgan/ko-sbert-multitask` is a Korean SBERT model suitable for local semantic filtering.
 - If running at scale, consider batching context snippets and caching indicator embeddings.
+- `sim_threshold` is compared with `context_score_norm`, a `[0, 1]` normalized
+  positive-minus-negative similarity margin.
+- Types intentionally omitted from `target_keys` keep their structure/rule-only behavior.
 

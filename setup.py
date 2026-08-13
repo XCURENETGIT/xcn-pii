@@ -15,6 +15,7 @@ EXCLUDED_FILES = {
     "context_debug_api.py",
     "detection_exclusions.py",
     "logging_utils.py",
+    "logrotate.py",
     "pii.py",
     "response_builders.py",
     "rules_loader.py",

@@ -1,180 +1,1096 @@
-﻿{
+{
+  "schema_version": 3,
+  "dataset_kind": "synthetic_adversarial",
+  "description": "문맥 평가 파이프라인과 유형별 기본·경계·교란 회귀를 검증하기 위한 합성 평가셋. 운영 precision/recall 확정에는 별도의 비식별 대표 데이터셋을 사용해야 한다.",
+  "target_policy": "context.target_keys only; intentionally excluded types are not included",
   "items": [
     {
-      "id": "mn_real_1",
-      "type": "MN",
-      "match": "010-1234-5678",
+      "id": "sn_positive_primary",
+      "type": "SN",
+      "match": "890512-2054508",
       "label": 1,
-      "text": "[怨좉컼 臾몄쓽] ?곕씫泥? 010-1234-5678 濡??곕씫 諛붾엻?덈떎."
+      "text": "주민등록번호: 890512-2054508",
+      "case_kind": "positive_label"
     },
     {
-      "id": "mn_real_2",
-      "type": "MN",
-      "match": "02-345-6789",
+      "id": "sn_positive_alternate",
+      "type": "SN",
+      "match": "890512-2054508",
       "label": 1,
-      "text": "??쒕쾲?몃뒗 02-345-6789 ?낅땲??"
+      "text": "resident registration number: 890512-2054508",
+      "case_kind": "positive_alias"
     },
     {
-      "id": "mn_real_3",
-      "type": "MN",
-      "match": "031 987 6543",
-      "label": 1,
-      "text": "吏???곕씫泥?031 987 6543 ?쇰줈 臾몄쓽?섏꽭??"
-    },
-    {
-      "id": "mn_sample_1",
-      "type": "MN",
-      "match": "010-1234-5678",
+      "id": "sn_negative_hard",
+      "type": "SN",
+      "match": "890512-2054508",
       "label": 0,
-      "text": "[?덉떆] ?꾪솕踰덊샇 ?덉떆: 010-1234-5678 (?섑뵆)"
+      "text": "테스트용 주민등록번호: 890512-2054508",
+      "case_kind": "negative_hard_marker"
     },
     {
-      "id": "mn_sample_2",
-      "type": "MN",
-      "match": "02-345-6789",
+      "id": "sn_negative_neutral",
+      "type": "SN",
+      "match": "890512-2054508",
       "label": 0,
-      "text": "?뚯뒪?몄슜 ?곕씫泥? 02-345-6789"
+      "text": "문서 관리 코드: 890512-2054508",
+      "case_kind": "negative_neutral_context"
     },
     {
-      "id": "EML_real_1",
-      "type": "EML",
-      "match": "user.name_01@sub.example.com",
+      "id": "sn_positive_spacing",
+      "type": "SN",
+      "match": "890512-2054508",
       "label": 1,
-      "text": "?대떦???대찓?? user.name_01@sub.example.com 濡?臾몄쓽?댁＜?몄슂."
+      "text": "고객 자료 | 주민등록번호    890512-2054508 | 확인",
+      "case_kind": "positive_spacing"
     },
     {
-      "id": "EML_real_2",
-      "type": "EML",
-      "match": "billing@company.com",
+      "id": "sn_positive_distant_negative",
+      "type": "SN",
+      "match": "890512-2054508",
       "label": 1,
-      "text": "寃곗젣 愿??臾몄쓽??billing@company.com ?쇰줈 蹂대궡二쇱꽭??"
+      "text": "테스트용 예시 코드는 이전 행에만 있습니다.\n주민등록번호: 890512-2054508",
+      "case_kind": "positive_distant_negative"
     },
     {
-      "id": "EML_sample_1",
-      "type": "EML",
-      "match": "ADMIN@EXAMPLE.ORG",
+      "id": "sn_negative_postfix_hard",
+      "type": "SN",
+      "match": "890512-2054508",
       "label": 0,
-      "text": "?뚯뒪???대찓???덉떆: ADMIN@EXAMPLE.ORG"
+      "text": "주민등록번호: 890512-2054508 샘플",
+      "case_kind": "negative_postfix_hard_marker"
     },
     {
-      "id": "EML_sample_2",
-      "type": "EML",
-      "match": "test.user@example.com",
+      "id": "sn_negative_marker_boundary",
+      "type": "SN",
+      "match": "890512-2054508",
       "label": 0,
-      "text": "?섑뵆 怨꾩젙: test.user@example.com (?덉떆)"
+      "text": "latest release 문서 관리 코드: 890512-2054508",
+      "case_kind": "negative_marker_word_boundary"
     },
     {
-      "id": "sn_real_1",
-      "type": "SN_INVALID",
-      "match": "900101-1234567",
+      "id": "fn_positive_primary",
+      "type": "FN",
+      "match": "900101-5123450",
       "label": 1,
-      "text": "蹂몄씤 ?뺤씤 二쇰??깅줉踰덊샇: 900101-1234567"
+      "text": "외국인등록번호: 900101-5123450",
+      "case_kind": "positive_label"
     },
     {
-      "id": "sn_real_2",
-      "type": "SN_INVALID",
-      "match": "960229-2234567",
+      "id": "fn_positive_alternate",
+      "type": "FN",
+      "match": "900101-5123450",
       "label": 1,
-      "text": "?좎썝 ?뺤씤??二쇰?踰덊샇 960229-2234567"
+      "text": "alien registration number: 900101-5123450",
+      "case_kind": "positive_alias"
     },
     {
-      "id": "sn_sample_1",
-      "type": "SN_INVALID",
-      "match": "801231-2345678",
+      "id": "fn_negative_hard",
+      "type": "FN",
+      "match": "900101-5123450",
       "label": 0,
-      "text": "?섑뵆 二쇰?踰덊샇: 801231-2345678 (?덉떆)"
+      "text": "테스트용 외국인등록번호: 900101-5123450",
+      "case_kind": "negative_hard_marker"
     },
     {
-      "id": "sn_sample_2",
-      "type": "SN_INVALID",
-      "match": "001231-4567890",
+      "id": "fn_negative_neutral",
+      "type": "FN",
+      "match": "900101-5123450",
       "label": 0,
-      "text": "?뚯뒪??二쇰??깅줉踰덊샇 001231-4567890"
+      "text": "회원 조회 코드: 900101-5123450",
+      "case_kind": "negative_neutral_context"
     },
     {
-      "id": "bn_real_1",
-      "type": "BN",
-      "match": "112233333344",
+      "id": "fn_positive_spacing",
+      "type": "FN",
+      "match": "900101-5123450",
       "label": 1,
-      "text": "怨꾩쥖踰덊샇: 112233333344 濡??↔툑 遺?곷뱶由쎈땲??"
+      "text": "고객 자료 | 외국인등록번호    900101-5123450 | 확인",
+      "case_kind": "positive_spacing"
     },
     {
-      "id": "bn_real_2",
-      "type": "BN",
-      "match": "123-456-789012",
+      "id": "fn_positive_distant_negative",
+      "type": "FN",
+      "match": "900101-5123450",
       "label": 1,
-      "text": "?낃툑 怨꾩쥖 123-456-789012 濡?泥섎━ 諛붾엻?덈떎."
+      "text": "테스트용 예시 코드는 이전 행에만 있습니다.\n외국인등록번호: 900101-5123450",
+      "case_kind": "positive_distant_negative"
     },
     {
-      "id": "bn_sample_1",
-      "type": "BN",
-      "match": "11-22-333333",
+      "id": "fn_negative_postfix_hard",
+      "type": "FN",
+      "match": "900101-5123450",
       "label": 0,
-      "text": "怨꾩쥖踰덊샇 ?덉떆: 11-22-333333 (?뚯뒪?몄슜)"
+      "text": "외국인등록번호: 900101-5123450 샘플",
+      "case_kind": "negative_postfix_hard_marker"
     },
     {
-      "id": "bn_sample_2",
-      "type": "BN",
-      "match": "12 3456 7890",
+      "id": "fn_negative_marker_boundary",
+      "type": "FN",
+      "match": "900101-5123450",
       "label": 0,
-      "text": "?섑뵆 怨꾩쥖: 12 3456 7890"
+      "text": "latest release 회원 조회 코드: 900101-5123450",
+      "case_kind": "negative_marker_word_boundary"
     },
     {
-      "id": "pn_real_1",
+      "id": "ssn_positive_primary",
+      "type": "SSN",
+      "match": "123-45-6789",
+      "label": 1,
+      "text": "social security number: 123-45-6789",
+      "case_kind": "positive_label"
+    },
+    {
+      "id": "ssn_positive_alternate",
+      "type": "SSN",
+      "match": "123-45-6789",
+      "label": 1,
+      "text": "미국 사회보장번호: 123-45-6789",
+      "case_kind": "positive_alias"
+    },
+    {
+      "id": "ssn_negative_hard",
+      "type": "SSN",
+      "match": "123-45-6789",
+      "label": 0,
+      "text": "테스트용 social security number: 123-45-6789",
+      "case_kind": "negative_hard_marker"
+    },
+    {
+      "id": "ssn_negative_neutral",
+      "type": "SSN",
+      "match": "123-45-6789",
+      "label": 0,
+      "text": "배송 추적 코드: 123-45-6789",
+      "case_kind": "negative_neutral_context"
+    },
+    {
+      "id": "ssn_positive_spacing",
+      "type": "SSN",
+      "match": "123-45-6789",
+      "label": 1,
+      "text": "고객 자료 | social security number    123-45-6789 | 확인",
+      "case_kind": "positive_spacing"
+    },
+    {
+      "id": "ssn_positive_distant_negative",
+      "type": "SSN",
+      "match": "123-45-6789",
+      "label": 1,
+      "text": "테스트용 예시 코드는 이전 행에만 있습니다.\nsocial security number: 123-45-6789",
+      "case_kind": "positive_distant_negative"
+    },
+    {
+      "id": "ssn_negative_postfix_hard",
+      "type": "SSN",
+      "match": "123-45-6789",
+      "label": 0,
+      "text": "social security number: 123-45-6789 샘플",
+      "case_kind": "negative_postfix_hard_marker"
+    },
+    {
+      "id": "ssn_negative_marker_boundary",
+      "type": "SSN",
+      "match": "123-45-6789",
+      "label": 0,
+      "text": "latest release 배송 추적 코드: 123-45-6789",
+      "case_kind": "negative_marker_word_boundary"
+    },
+    {
+      "id": "dn_positive_primary",
+      "type": "DN",
+      "match": "11-22-333333-44",
+      "label": 1,
+      "text": "운전면허번호: 11-22-333333-44",
+      "case_kind": "positive_label"
+    },
+    {
+      "id": "dn_positive_alternate",
+      "type": "DN",
+      "match": "11-22-333333-44",
+      "label": 1,
+      "text": "driver license number: 11-22-333333-44",
+      "case_kind": "positive_alias"
+    },
+    {
+      "id": "dn_negative_hard",
+      "type": "DN",
+      "match": "11-22-333333-44",
+      "label": 0,
+      "text": "테스트용 운전면허번호: 11-22-333333-44",
+      "case_kind": "negative_hard_marker"
+    },
+    {
+      "id": "dn_negative_neutral",
+      "type": "DN",
+      "match": "11-22-333333-44",
+      "label": 0,
+      "text": "제품 일련 코드: 11-22-333333-44",
+      "case_kind": "negative_neutral_context"
+    },
+    {
+      "id": "dn_positive_spacing",
+      "type": "DN",
+      "match": "11-22-333333-44",
+      "label": 1,
+      "text": "고객 자료 | 운전면허번호    11-22-333333-44 | 확인",
+      "case_kind": "positive_spacing"
+    },
+    {
+      "id": "dn_positive_distant_negative",
+      "type": "DN",
+      "match": "11-22-333333-44",
+      "label": 1,
+      "text": "테스트용 예시 코드는 이전 행에만 있습니다.\n운전면허번호: 11-22-333333-44",
+      "case_kind": "positive_distant_negative"
+    },
+    {
+      "id": "dn_negative_postfix_hard",
+      "type": "DN",
+      "match": "11-22-333333-44",
+      "label": 0,
+      "text": "운전면허번호: 11-22-333333-44 샘플",
+      "case_kind": "negative_postfix_hard_marker"
+    },
+    {
+      "id": "dn_negative_marker_boundary",
+      "type": "DN",
+      "match": "11-22-333333-44",
+      "label": 0,
+      "text": "latest release 제품 일련 코드: 11-22-333333-44",
+      "case_kind": "negative_marker_word_boundary"
+    },
+    {
+      "id": "pn_positive_primary",
       "type": "PN",
       "match": "M12345678",
       "label": 1,
-      "text": "?ш텒踰덊샇: M12345678"
+      "text": "여권번호: M12345678",
+      "case_kind": "positive_label"
     },
     {
-      "id": "pn_real_2",
+      "id": "pn_positive_alternate",
       "type": "PN",
-      "match": "AB1234567",
+      "match": "M12345678",
       "label": 1,
-      "text": "?ш텒 踰덊샇 AB1234567 ?쒖텧 ?꾨즺"
+      "text": "여권 No: M12345678",
+      "case_kind": "positive_alias"
     },
     {
-      "id": "pn_sample_1",
+      "id": "pn_negative_hard",
       "type": "PN",
-      "match": "S98765432",
+      "match": "M12345678",
       "label": 0,
-      "text": "?ш텒踰덊샇 ?덉떆: S98765432 (?섑뵆)"
+      "text": "테스트용 여권번호: M12345678",
+      "case_kind": "negative_hard_marker"
     },
     {
-      "id": "pn_sample_2",
+      "id": "pn_negative_neutral",
       "type": "PN",
-      "match": "C00000000",
+      "match": "M12345678",
       "label": 0,
-      "text": "?뚯뒪???ш텒踰덊샇 C00000000"
+      "text": "제품 모델 번호: M12345678",
+      "case_kind": "negative_neutral_context"
     },
     {
-      "id": "an_real_1",
-      "type": "AN",
-      "match": "?쒖슱?밸퀎??媛뺣궓援??뚰뿤?濡?123-4",
+      "id": "pn_positive_spacing",
+      "type": "PN",
+      "match": "M12345678",
       "label": 1,
-      "text": "二쇱냼: ?쒖슱?밸퀎??媛뺣궓援??뚰뿤?濡?123-4"
+      "text": "고객 자료 | 여권번호    M12345678 | 확인",
+      "case_kind": "positive_spacing"
     },
     {
-      "id": "an_real_2",
-      "type": "AN",
-      "match": "遺?곌킅??떆 ?댁슫?援??щ쭪?닿만 77",
+      "id": "pn_positive_distant_negative",
+      "type": "PN",
+      "match": "M12345678",
       "label": 1,
-      "text": "諛곗넚吏 遺?곌킅??떆 ?댁슫?援??щ쭪?닿만 77 濡?遺?곷뱶由쎈땲??"
+      "text": "테스트용 예시 코드는 이전 행에만 있습니다.\n여권번호: M12345678",
+      "case_kind": "positive_distant_negative"
     },
     {
-      "id": "an_sample_1",
-      "type": "AN",
-      "match": "寃쎄린???깅궓??遺꾨떦援??뺤옄??12-3",
+      "id": "pn_negative_postfix_hard",
+      "type": "PN",
+      "match": "M12345678",
       "label": 0,
-      "text": "二쇱냼 ?덉떆: 寃쎄린???깅궓??遺꾨떦援??뺤옄??12-3"
+      "text": "여권번호: M12345678 샘플",
+      "case_kind": "negative_postfix_hard_marker"
     },
     {
-      "id": "an_sample_2",
-      "type": "AN",
-      "match": "?쒖슱??媛뺣궓援???궪??1-1",
+      "id": "pn_negative_marker_boundary",
+      "type": "PN",
+      "match": "M12345678",
       "label": 0,
-      "text": "?섑뵆 二쇱냼 ?쒖슱??媛뺣궓援???궪??1-1"
+      "text": "latest release 제품 모델 번호: M12345678",
+      "case_kind": "negative_marker_word_boundary"
+    },
+    {
+      "id": "brn_positive_primary",
+      "type": "BRN",
+      "match": "110-81-40818",
+      "label": 1,
+      "text": "사업자등록번호: 110-81-40818",
+      "case_kind": "positive_label"
+    },
+    {
+      "id": "brn_positive_alternate",
+      "type": "BRN",
+      "match": "110-81-40818",
+      "label": 1,
+      "text": "business registration number: 110-81-40818",
+      "case_kind": "positive_alias"
+    },
+    {
+      "id": "brn_negative_hard",
+      "type": "BRN",
+      "match": "110-81-40818",
+      "label": 0,
+      "text": "테스트용 사업자등록번호: 110-81-40818",
+      "case_kind": "negative_hard_marker"
+    },
+    {
+      "id": "brn_negative_neutral",
+      "type": "BRN",
+      "match": "110-81-40818",
+      "label": 0,
+      "text": "접수 처리 코드: 110-81-40818",
+      "case_kind": "negative_neutral_context"
+    },
+    {
+      "id": "brn_positive_spacing",
+      "type": "BRN",
+      "match": "110-81-40818",
+      "label": 1,
+      "text": "고객 자료 | 사업자등록번호    110-81-40818 | 확인",
+      "case_kind": "positive_spacing"
+    },
+    {
+      "id": "brn_positive_distant_negative",
+      "type": "BRN",
+      "match": "110-81-40818",
+      "label": 1,
+      "text": "테스트용 예시 코드는 이전 행에만 있습니다.\n사업자등록번호: 110-81-40818",
+      "case_kind": "positive_distant_negative"
+    },
+    {
+      "id": "brn_negative_postfix_hard",
+      "type": "BRN",
+      "match": "110-81-40818",
+      "label": 0,
+      "text": "사업자등록번호: 110-81-40818 샘플",
+      "case_kind": "negative_postfix_hard_marker"
+    },
+    {
+      "id": "brn_negative_marker_boundary",
+      "type": "BRN",
+      "match": "110-81-40818",
+      "label": 0,
+      "text": "latest release 접수 처리 코드: 110-81-40818",
+      "case_kind": "negative_marker_word_boundary"
+    },
+    {
+      "id": "bn_positive_primary",
+      "type": "BN",
+      "match": "123456-01-123456",
+      "label": 1,
+      "text": "계좌번호: 123456-01-123456",
+      "case_kind": "positive_label"
+    },
+    {
+      "id": "bn_positive_alternate",
+      "type": "BN",
+      "match": "123456-01-123456",
+      "label": 1,
+      "text": "bank account number: 123456-01-123456",
+      "case_kind": "positive_alias"
+    },
+    {
+      "id": "bn_negative_hard",
+      "type": "BN",
+      "match": "123456-01-123456",
+      "label": 0,
+      "text": "테스트용 계좌번호: 123456-01-123456",
+      "case_kind": "negative_hard_marker"
+    },
+    {
+      "id": "bn_negative_neutral",
+      "type": "BN",
+      "match": "123456-01-123456",
+      "label": 0,
+      "text": "거래 참조 번호: 123456-01-123456",
+      "case_kind": "negative_neutral_context"
+    },
+    {
+      "id": "bn_positive_spacing",
+      "type": "BN",
+      "match": "123456-01-123456",
+      "label": 1,
+      "text": "고객 자료 | 계좌번호    123456-01-123456 | 확인",
+      "case_kind": "positive_spacing"
+    },
+    {
+      "id": "bn_positive_distant_negative",
+      "type": "BN",
+      "match": "123456-01-123456",
+      "label": 1,
+      "text": "테스트용 예시 코드는 이전 행에만 있습니다.\n계좌번호: 123456-01-123456",
+      "case_kind": "positive_distant_negative"
+    },
+    {
+      "id": "bn_negative_postfix_hard",
+      "type": "BN",
+      "match": "123456-01-123456",
+      "label": 0,
+      "text": "계좌번호: 123456-01-123456 샘플",
+      "case_kind": "negative_postfix_hard_marker"
+    },
+    {
+      "id": "bn_negative_marker_boundary",
+      "type": "BN",
+      "match": "123456-01-123456",
+      "label": 0,
+      "text": "latest release 거래 참조 번호: 123456-01-123456",
+      "case_kind": "negative_marker_word_boundary"
+    },
+    {
+      "id": "cn_positive_primary",
+      "type": "CN",
+      "match": "4111-1111-1111-1111",
+      "label": 1,
+      "text": "카드번호: 4111-1111-1111-1111",
+      "case_kind": "positive_label"
+    },
+    {
+      "id": "cn_positive_alternate",
+      "type": "CN",
+      "match": "4111-1111-1111-1111",
+      "label": 1,
+      "text": "credit card number: 4111-1111-1111-1111",
+      "case_kind": "positive_alias"
+    },
+    {
+      "id": "cn_negative_hard",
+      "type": "CN",
+      "match": "4111-1111-1111-1111",
+      "label": 0,
+      "text": "테스트용 카드번호: 4111-1111-1111-1111",
+      "case_kind": "negative_hard_marker"
+    },
+    {
+      "id": "cn_negative_neutral",
+      "type": "CN",
+      "match": "4111-1111-1111-1111",
+      "label": 0,
+      "text": "주문 승인 코드: 4111-1111-1111-1111",
+      "case_kind": "negative_neutral_context"
+    },
+    {
+      "id": "cn_positive_spacing",
+      "type": "CN",
+      "match": "4111-1111-1111-1111",
+      "label": 1,
+      "text": "고객 자료 | 카드번호    4111-1111-1111-1111 | 확인",
+      "case_kind": "positive_spacing"
+    },
+    {
+      "id": "cn_positive_distant_negative",
+      "type": "CN",
+      "match": "4111-1111-1111-1111",
+      "label": 1,
+      "text": "테스트용 예시 코드는 이전 행에만 있습니다.\n카드번호: 4111-1111-1111-1111",
+      "case_kind": "positive_distant_negative"
+    },
+    {
+      "id": "cn_negative_postfix_hard",
+      "type": "CN",
+      "match": "4111-1111-1111-1111",
+      "label": 0,
+      "text": "카드번호: 4111-1111-1111-1111 샘플",
+      "case_kind": "negative_postfix_hard_marker"
+    },
+    {
+      "id": "cn_negative_marker_boundary",
+      "type": "CN",
+      "match": "4111-1111-1111-1111",
+      "label": 0,
+      "text": "latest release 주문 승인 코드: 4111-1111-1111-1111",
+      "case_kind": "negative_marker_word_boundary"
+    },
+    {
+      "id": "cpn_positive_primary",
+      "type": "CPN",
+      "match": "110111-1234569",
+      "label": 1,
+      "text": "법인등록번호: 110111-1234569",
+      "case_kind": "positive_label"
+    },
+    {
+      "id": "cpn_positive_alternate",
+      "type": "CPN",
+      "match": "110111-1234569",
+      "label": 1,
+      "text": "corporate registration number: 110111-1234569",
+      "case_kind": "positive_alias"
+    },
+    {
+      "id": "cpn_negative_hard",
+      "type": "CPN",
+      "match": "110111-1234569",
+      "label": 0,
+      "text": "테스트용 법인등록번호: 110111-1234569",
+      "case_kind": "negative_hard_marker"
+    },
+    {
+      "id": "cpn_negative_neutral",
+      "type": "CPN",
+      "match": "110111-1234569",
+      "label": 0,
+      "text": "문서 등록 코드: 110111-1234569",
+      "case_kind": "negative_neutral_context"
+    },
+    {
+      "id": "cpn_positive_spacing",
+      "type": "CPN",
+      "match": "110111-1234569",
+      "label": 1,
+      "text": "고객 자료 | 법인등록번호    110111-1234569 | 확인",
+      "case_kind": "positive_spacing"
+    },
+    {
+      "id": "cpn_positive_distant_negative",
+      "type": "CPN",
+      "match": "110111-1234569",
+      "label": 1,
+      "text": "테스트용 예시 코드는 이전 행에만 있습니다.\n법인등록번호: 110111-1234569",
+      "case_kind": "positive_distant_negative"
+    },
+    {
+      "id": "cpn_negative_postfix_hard",
+      "type": "CPN",
+      "match": "110111-1234569",
+      "label": 0,
+      "text": "법인등록번호: 110111-1234569 샘플",
+      "case_kind": "negative_postfix_hard_marker"
+    },
+    {
+      "id": "cpn_negative_marker_boundary",
+      "type": "CPN",
+      "match": "110111-1234569",
+      "label": 0,
+      "text": "latest release 문서 등록 코드: 110111-1234569",
+      "case_kind": "negative_marker_word_boundary"
+    },
+    {
+      "id": "crn_positive_primary",
+      "type": "CRN",
+      "match": "123가 4567",
+      "label": 1,
+      "text": "차량등록번호: 123가 4567",
+      "case_kind": "positive_label"
+    },
+    {
+      "id": "crn_positive_alternate",
+      "type": "CRN",
+      "match": "123가 4567",
+      "label": 1,
+      "text": "vehicle registration number: 123가 4567",
+      "case_kind": "positive_alias"
+    },
+    {
+      "id": "crn_negative_hard",
+      "type": "CRN",
+      "match": "123가 4567",
+      "label": 0,
+      "text": "테스트용 차량등록번호: 123가 4567",
+      "case_kind": "negative_hard_marker"
+    },
+    {
+      "id": "crn_negative_neutral",
+      "type": "CRN",
+      "match": "123가 4567",
+      "label": 0,
+      "text": "주차 위치 코드: 123가 4567",
+      "case_kind": "negative_neutral_context"
+    },
+    {
+      "id": "crn_positive_spacing",
+      "type": "CRN",
+      "match": "123가 4567",
+      "label": 1,
+      "text": "고객 자료 | 차량등록번호    123가 4567 | 확인",
+      "case_kind": "positive_spacing"
+    },
+    {
+      "id": "crn_positive_distant_negative",
+      "type": "CRN",
+      "match": "123가 4567",
+      "label": 1,
+      "text": "테스트용 예시 코드는 이전 행에만 있습니다.\n차량등록번호: 123가 4567",
+      "case_kind": "positive_distant_negative"
+    },
+    {
+      "id": "crn_negative_postfix_hard",
+      "type": "CRN",
+      "match": "123가 4567",
+      "label": 0,
+      "text": "차량등록번호: 123가 4567 샘플",
+      "case_kind": "negative_postfix_hard_marker"
+    },
+    {
+      "id": "crn_negative_marker_boundary",
+      "type": "CRN",
+      "match": "123가 4567",
+      "label": 0,
+      "text": "latest release 주차 위치 코드: 123가 4567",
+      "case_kind": "negative_marker_word_boundary"
+    },
+    {
+      "id": "imei_positive_primary",
+      "type": "IMEI",
+      "match": "490154203237518",
+      "label": 1,
+      "text": "IMEI: 490154203237518",
+      "case_kind": "positive_label"
+    },
+    {
+      "id": "imei_positive_alternate",
+      "type": "IMEI",
+      "match": "490154203237518",
+      "label": 1,
+      "text": "mobile equipment identity: 490154203237518",
+      "case_kind": "positive_alias"
+    },
+    {
+      "id": "imei_negative_hard",
+      "type": "IMEI",
+      "match": "490154203237518",
+      "label": 0,
+      "text": "테스트용 IMEI: 490154203237518",
+      "case_kind": "negative_hard_marker"
+    },
+    {
+      "id": "imei_negative_neutral",
+      "type": "IMEI",
+      "match": "490154203237518",
+      "label": 0,
+      "text": "제품 일련번호: 490154203237518",
+      "case_kind": "negative_neutral_context"
+    },
+    {
+      "id": "imei_positive_spacing",
+      "type": "IMEI",
+      "match": "490154203237518",
+      "label": 1,
+      "text": "고객 자료 | IMEI    490154203237518 | 확인",
+      "case_kind": "positive_spacing"
+    },
+    {
+      "id": "imei_positive_distant_negative",
+      "type": "IMEI",
+      "match": "490154203237518",
+      "label": 1,
+      "text": "테스트용 예시 코드는 이전 행에만 있습니다.\nIMEI: 490154203237518",
+      "case_kind": "positive_distant_negative"
+    },
+    {
+      "id": "imei_negative_postfix_hard",
+      "type": "IMEI",
+      "match": "490154203237518",
+      "label": 0,
+      "text": "IMEI: 490154203237518 샘플",
+      "case_kind": "negative_postfix_hard_marker"
+    },
+    {
+      "id": "imei_negative_marker_boundary",
+      "type": "IMEI",
+      "match": "490154203237518",
+      "label": 0,
+      "text": "latest release 제품 일련번호: 490154203237518",
+      "case_kind": "negative_marker_word_boundary"
+    },
+    {
+      "id": "mcn_positive_primary",
+      "type": "MCN",
+      "match": "AA:BB:CC:DD:EE:FF",
+      "label": 1,
+      "text": "MAC 주소: AA:BB:CC:DD:EE:FF",
+      "case_kind": "positive_label"
+    },
+    {
+      "id": "mcn_positive_alternate",
+      "type": "MCN",
+      "match": "AA:BB:CC:DD:EE:FF",
+      "label": 1,
+      "text": "MAC address: AA:BB:CC:DD:EE:FF",
+      "case_kind": "positive_alias"
+    },
+    {
+      "id": "mcn_negative_hard",
+      "type": "MCN",
+      "match": "AA:BB:CC:DD:EE:FF",
+      "label": 0,
+      "text": "테스트용 MAC 주소: AA:BB:CC:DD:EE:FF",
+      "case_kind": "negative_hard_marker"
+    },
+    {
+      "id": "mcn_negative_neutral",
+      "type": "MCN",
+      "match": "AA:BB:CC:DD:EE:FF",
+      "label": 0,
+      "text": "장비 표시 문자열: AA:BB:CC:DD:EE:FF",
+      "case_kind": "negative_neutral_context"
+    },
+    {
+      "id": "mcn_positive_spacing",
+      "type": "MCN",
+      "match": "AA:BB:CC:DD:EE:FF",
+      "label": 1,
+      "text": "고객 자료 | MAC 주소    AA:BB:CC:DD:EE:FF | 확인",
+      "case_kind": "positive_spacing"
+    },
+    {
+      "id": "mcn_positive_distant_negative",
+      "type": "MCN",
+      "match": "AA:BB:CC:DD:EE:FF",
+      "label": 1,
+      "text": "테스트용 예시 코드는 이전 행에만 있습니다.\nMAC 주소: AA:BB:CC:DD:EE:FF",
+      "case_kind": "positive_distant_negative"
+    },
+    {
+      "id": "mcn_negative_postfix_hard",
+      "type": "MCN",
+      "match": "AA:BB:CC:DD:EE:FF",
+      "label": 0,
+      "text": "MAC 주소: AA:BB:CC:DD:EE:FF 샘플",
+      "case_kind": "negative_postfix_hard_marker"
+    },
+    {
+      "id": "mcn_negative_marker_boundary",
+      "type": "MCN",
+      "match": "AA:BB:CC:DD:EE:FF",
+      "label": 0,
+      "text": "latest release 장비 표시 문자열: AA:BB:CC:DD:EE:FF",
+      "case_kind": "negative_marker_word_boundary"
+    },
+    {
+      "id": "vn_cccd_positive_primary",
+      "type": "VN_CCCD",
+      "match": "001234567890",
+      "label": 1,
+      "text": "CCCD: 001234567890",
+      "case_kind": "positive_label"
+    },
+    {
+      "id": "vn_cccd_positive_alternate",
+      "type": "VN_CCCD",
+      "match": "001234567890",
+      "label": 1,
+      "text": "can cuoc cong dan: 001234567890",
+      "case_kind": "positive_alias"
+    },
+    {
+      "id": "vn_cccd_negative_hard",
+      "type": "VN_CCCD",
+      "match": "001234567890",
+      "label": 0,
+      "text": "테스트용 CCCD: 001234567890",
+      "case_kind": "negative_hard_marker"
+    },
+    {
+      "id": "vn_cccd_negative_neutral",
+      "type": "VN_CCCD",
+      "match": "001234567890",
+      "label": 0,
+      "text": "ma don hang: 001234567890",
+      "case_kind": "negative_neutral_context"
+    },
+    {
+      "id": "vn_cccd_positive_spacing",
+      "type": "VN_CCCD",
+      "match": "001234567890",
+      "label": 1,
+      "text": "고객 자료 | CCCD    001234567890 | 확인",
+      "case_kind": "positive_spacing"
+    },
+    {
+      "id": "vn_cccd_positive_distant_negative",
+      "type": "VN_CCCD",
+      "match": "001234567890",
+      "label": 1,
+      "text": "테스트용 예시 코드는 이전 행에만 있습니다.\nCCCD: 001234567890",
+      "case_kind": "positive_distant_negative"
+    },
+    {
+      "id": "vn_cccd_negative_postfix_hard",
+      "type": "VN_CCCD",
+      "match": "001234567890",
+      "label": 0,
+      "text": "CCCD: 001234567890 샘플",
+      "case_kind": "negative_postfix_hard_marker"
+    },
+    {
+      "id": "vn_cccd_negative_marker_boundary",
+      "type": "VN_CCCD",
+      "match": "001234567890",
+      "label": 0,
+      "text": "latest release ma don hang: 001234567890",
+      "case_kind": "negative_marker_word_boundary"
+    },
+    {
+      "id": "vn_mn_positive_primary",
+      "type": "VN_MN",
+      "match": "098-123-4567",
+      "label": 1,
+      "text": "so dien thoai: 098-123-4567",
+      "case_kind": "positive_label"
+    },
+    {
+      "id": "vn_mn_positive_alternate",
+      "type": "VN_MN",
+      "match": "098-123-4567",
+      "label": 1,
+      "text": "베트남 휴대폰: 098-123-4567",
+      "case_kind": "positive_alias"
+    },
+    {
+      "id": "vn_mn_negative_hard",
+      "type": "VN_MN",
+      "match": "098-123-4567",
+      "label": 0,
+      "text": "테스트용 so dien thoai: 098-123-4567",
+      "case_kind": "negative_hard_marker"
+    },
+    {
+      "id": "vn_mn_negative_neutral",
+      "type": "VN_MN",
+      "match": "098-123-4567",
+      "label": 0,
+      "text": "ma giao dich: 098-123-4567",
+      "case_kind": "negative_neutral_context"
+    },
+    {
+      "id": "vn_mn_positive_spacing",
+      "type": "VN_MN",
+      "match": "098-123-4567",
+      "label": 1,
+      "text": "고객 자료 | so dien thoai    098-123-4567 | 확인",
+      "case_kind": "positive_spacing"
+    },
+    {
+      "id": "vn_mn_positive_distant_negative",
+      "type": "VN_MN",
+      "match": "098-123-4567",
+      "label": 1,
+      "text": "테스트용 예시 코드는 이전 행에만 있습니다.\nso dien thoai: 098-123-4567",
+      "case_kind": "positive_distant_negative"
+    },
+    {
+      "id": "vn_mn_negative_postfix_hard",
+      "type": "VN_MN",
+      "match": "098-123-4567",
+      "label": 0,
+      "text": "so dien thoai: 098-123-4567 샘플",
+      "case_kind": "negative_postfix_hard_marker"
+    },
+    {
+      "id": "vn_mn_negative_marker_boundary",
+      "type": "VN_MN",
+      "match": "098-123-4567",
+      "label": 0,
+      "text": "latest release ma giao dich: 098-123-4567",
+      "case_kind": "negative_marker_word_boundary"
+    },
+    {
+      "id": "vn_pn_positive_primary",
+      "type": "VN_PN",
+      "match": "B12345678",
+      "label": 1,
+      "text": "ho chieu: B12345678",
+      "case_kind": "positive_label"
+    },
+    {
+      "id": "vn_pn_positive_alternate",
+      "type": "VN_PN",
+      "match": "B12345678",
+      "label": 1,
+      "text": "베트남 여권번호: B12345678",
+      "case_kind": "positive_alias"
+    },
+    {
+      "id": "vn_pn_negative_hard",
+      "type": "VN_PN",
+      "match": "B12345678",
+      "label": 0,
+      "text": "테스트용 ho chieu: B12345678",
+      "case_kind": "negative_hard_marker"
+    },
+    {
+      "id": "vn_pn_negative_neutral",
+      "type": "VN_PN",
+      "match": "B12345678",
+      "label": 0,
+      "text": "ma san pham: B12345678",
+      "case_kind": "negative_neutral_context"
+    },
+    {
+      "id": "vn_pn_positive_spacing",
+      "type": "VN_PN",
+      "match": "B12345678",
+      "label": 1,
+      "text": "고객 자료 | ho chieu    B12345678 | 확인",
+      "case_kind": "positive_spacing"
+    },
+    {
+      "id": "vn_pn_positive_distant_negative",
+      "type": "VN_PN",
+      "match": "B12345678",
+      "label": 1,
+      "text": "테스트용 예시 코드는 이전 행에만 있습니다.\nho chieu: B12345678",
+      "case_kind": "positive_distant_negative"
+    },
+    {
+      "id": "vn_pn_negative_postfix_hard",
+      "type": "VN_PN",
+      "match": "B12345678",
+      "label": 0,
+      "text": "ho chieu: B12345678 샘플",
+      "case_kind": "negative_postfix_hard_marker"
+    },
+    {
+      "id": "vn_pn_negative_marker_boundary",
+      "type": "VN_PN",
+      "match": "B12345678",
+      "label": 0,
+      "text": "latest release ma san pham: B12345678",
+      "case_kind": "negative_marker_word_boundary"
+    },
+    {
+      "id": "vn_tin_positive_primary",
+      "type": "VN_TIN",
+      "match": "0312345678-001",
+      "label": 1,
+      "text": "ma so thue: 0312345678-001",
+      "case_kind": "positive_label"
+    },
+    {
+      "id": "vn_tin_positive_alternate",
+      "type": "VN_TIN",
+      "match": "0312345678-001",
+      "label": 1,
+      "text": "베트남 세금번호: 0312345678-001",
+      "case_kind": "positive_alias"
+    },
+    {
+      "id": "vn_tin_negative_hard",
+      "type": "VN_TIN",
+      "match": "0312345678-001",
+      "label": 0,
+      "text": "테스트용 ma so thue: 0312345678-001",
+      "case_kind": "negative_hard_marker"
+    },
+    {
+      "id": "vn_tin_negative_neutral",
+      "type": "VN_TIN",
+      "match": "0312345678-001",
+      "label": 0,
+      "text": "ma don hang: 0312345678-001",
+      "case_kind": "negative_neutral_context"
+    },
+    {
+      "id": "vn_tin_positive_spacing",
+      "type": "VN_TIN",
+      "match": "0312345678-001",
+      "label": 1,
+      "text": "고객 자료 | ma so thue    0312345678-001 | 확인",
+      "case_kind": "positive_spacing"
+    },
+    {
+      "id": "vn_tin_positive_distant_negative",
+      "type": "VN_TIN",
+      "match": "0312345678-001",
+      "label": 1,
+      "text": "테스트용 예시 코드는 이전 행에만 있습니다.\nma so thue: 0312345678-001",
+      "case_kind": "positive_distant_negative"
+    },
+    {
+      "id": "vn_tin_negative_postfix_hard",
+      "type": "VN_TIN",
+      "match": "0312345678-001",
+      "label": 0,
+      "text": "ma so thue: 0312345678-001 샘플",
+      "case_kind": "negative_postfix_hard_marker"
+    },
+    {
+      "id": "vn_tin_negative_marker_boundary",
+      "type": "VN_TIN",
+      "match": "0312345678-001",
+      "label": 0,
+      "text": "latest release ma don hang: 0312345678-001",
+      "case_kind": "negative_marker_word_boundary"
+    },
+    {
+      "id": "vn_si_positive_primary",
+      "type": "VN_SI",
+      "match": "0123456789",
+      "label": 1,
+      "text": "ma so BHXH: 0123456789",
+      "case_kind": "positive_label"
+    },
+    {
+      "id": "vn_si_positive_alternate",
+      "type": "VN_SI",
+      "match": "0123456789",
+      "label": 1,
+      "text": "베트남 사회보험번호: 0123456789",
+      "case_kind": "positive_alias"
+    },
+    {
+      "id": "vn_si_negative_hard",
+      "type": "VN_SI",
+      "match": "0123456789",
+      "label": 0,
+      "text": "테스트용 ma so BHXH: 0123456789",
+      "case_kind": "negative_hard_marker"
+    },
+    {
+      "id": "vn_si_negative_neutral",
+      "type": "VN_SI",
+      "match": "0123456789",
+      "label": 0,
+      "text": "ma giao dich: 0123456789",
+      "case_kind": "negative_neutral_context"
+    },
+    {
+      "id": "vn_si_positive_spacing",
+      "type": "VN_SI",
+      "match": "0123456789",
+      "label": 1,
+      "text": "고객 자료 | ma so BHXH    0123456789 | 확인",
+      "case_kind": "positive_spacing"
+    },
+    {
+      "id": "vn_si_positive_distant_negative",
+      "type": "VN_SI",
+      "match": "0123456789",
+      "label": 1,
+      "text": "테스트용 예시 코드는 이전 행에만 있습니다.\nma so BHXH: 0123456789",
+      "case_kind": "positive_distant_negative"
+    },
+    {
+      "id": "vn_si_negative_postfix_hard",
+      "type": "VN_SI",
+      "match": "0123456789",
+      "label": 0,
+      "text": "ma so BHXH: 0123456789 샘플",
+      "case_kind": "negative_postfix_hard_marker"
+    },
+    {
+      "id": "vn_si_negative_marker_boundary",
+      "type": "VN_SI",
+      "match": "0123456789",
+      "label": 0,
+      "text": "latest release ma giao dich: 0123456789",
+      "case_kind": "negative_marker_word_boundary"
     }
   ]
 }
-

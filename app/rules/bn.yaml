@@ -14,6 +14,8 @@ bank_pattern_weight: 0.25
 
 # Candidate regex list for account-like numeric tokens.
 patterns:
+  - name: account_4_4_4_4
+    regex: '(?<!\d)\d{4}[-\s]\d{4}[-\s]\d{4}[-\s]\d{4}(?!\d)'
   - name: account_candidate
     regex: '(?<!\d)\d{2,4}[-\s]?\d{2,6}[-\s]?\d{4,7}(?!\d)'
   - name: account_6_2_6
@@ -29,7 +31,7 @@ postfilter:
   enabled: true
   digits_length:
     min: 10
-    max: 14
+    max: 16
   reject_if_phone_like: true
   reject_if_rrn_like: true
   reject_if_brn_like: true
@@ -40,5 +42,4 @@ postfilter:
     - DN
     - PN
     - BRN
-    - CN
     - EML

@@ -1,5 +1,11 @@
 name: xcn-pii
 
+x-json-logging: &json-logging
+  driver: json-file
+  options:
+    max-size: "${PII_DOCKER_LOG_MAX_SIZE:-100m}"
+    max-file: "${PII_DOCKER_LOG_MAX_FILE:-5}"
+
 services:
   api:
     profiles: ["http"]
@@ -24,12 +30,9 @@ services:
       - PII_SPLIT_CHUNK_CHARS=50000
       - PII_SPLIT_OVERLAP_CHARS=2000
       - PII_SPLIT_MAX_WORKERS=${PII_SPLIT_MAX_WORKERS:-1}
-      - PII_SPLIT_MAX_RESULTS_PER_TYPE=200
       - PII_SPLIT_MAX_CHUNKS=64
       - PII_FASTPATH_ENABLED=true
       - PII_FASTPATH_TEXT_LEN=50000
-      - PII_FASTPATH_MAX_RESULTS_PER_TYPE=200
-      - PII_FASTPATH_TARGET_KEYS=SN,FN,SSN,DN,PN,MN,BRN,AN,EML,CN,VN_CCCD,VN_MN,VN_PN,VN_TIN,VN_SI
       - PII_HS_SN_ENABLED=true
       - PII_HS_DN_ENABLED=true
       - PII_HS_AN_ENABLED=false
@@ -40,9 +43,12 @@ services:
       - PII_HS_CN_ENABLED=true
       - PII_HS_COMBINED_ENABLED=${PII_HS_COMBINED_ENABLED:-true}
       - PII_CONTEXT_EMBED_MAX_CHARS=${PII_CONTEXT_EMBED_MAX_CHARS:-256}
+      - PII_CONTEXT_EMBED_NORMALIZE_DIGITS=${PII_CONTEXT_EMBED_NORMALIZE_DIGITS:-true}
+      - PII_CONTEXT_RULE_FIRST_ENABLED=${PII_CONTEXT_RULE_FIRST_ENABLED:-true}
       - PII_TRACE_DETECT=false
       - PII_TRACE_SLOW_MS=800
       - PII_STAGE_TIMING_ENABLED=false
+      - PII_LOG_REQUEST_TEXT_ENABLED=${PII_LOG_REQUEST_TEXT_ENABLED:-false}
       - PII_STAGE_LOG_ENABLED=false
       - PII_STAGE_LOG_ITEMS=false
       - PII_STAGE_LOG_ITEM_LIMIT=100
@@ -50,7 +56,7 @@ services:
       - PII_FILE_LOG_ENABLED=true
       - PII_LOG_DIR=/logs
       - PII_LOG_LEVEL=${PII_LOG_LEVEL:-INFO}
-      - PII_LOG_BACKUP_DAYS=30
+      - PII_LOG_BACKUP_DAYS=${PII_LOG_BACKUP_DAYS:-30}
       - PII_LOG_TIMEZONE=Asia/Seoul
       - TZ=Asia/Seoul
       - HF_HOME=/data/hf
@@ -67,6 +73,24 @@ services:
       - hf_cache:/data/hf
       - ./data:/app/data
       - ./logs:/logs
+    logging: *json-logging
+    restart: unless-stopped
+
+  logrotate:
+    profiles: ["http"]
+    image: ${PII_IMAGE_REPO:-xcn-pii}/api-http-cpu:${PII_IMAGE_TAG:-latest}
+    command: ["python", "-m", "app.logrotate"]
+    environment:
+      - TZ=Asia/Seoul
+      - PII_LOG_DIR=/logs
+      - PII_LOG_LEVEL=${PII_LOG_LEVEL:-INFO}
+      - PII_LOG_MAX_FILE_MB=${PII_LOG_MAX_FILE_MB:-100}
+      - PII_LOG_TOTAL_MAX_MB=${PII_LOG_TOTAL_MAX_MB:-10240}
+      - PII_LOG_BACKUP_DAYS=${PII_LOG_BACKUP_DAYS:-30}
+      - PII_LOG_ROTATE_INTERVAL_SEC=${PII_LOG_ROTATE_INTERVAL_SEC:-30}
+    volumes:
+      - ./logs:/logs
+    logging: *json-logging
     restart: unless-stopped
 
 volumes:

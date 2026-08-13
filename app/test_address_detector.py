@@ -1,3 +1,9 @@
+import re
+import time
+from pathlib import Path
+
+import yaml
+
 from app.pii import detect_all
 
 
@@ -44,3 +50,23 @@ def test_address_keeps_common_detail_tokens_only():
 
     assert found.get("AN")
     assert found["AN"][0]["matchString"] == "서울특별시 은평구 가좌로 276 101동 1203호"
+
+
+def test_address_regex_avoids_backtracking_on_long_delimiter_free_text():
+    rules = yaml.safe_load((Path(__file__).parent / "rules" / "an.yaml").read_text(encoding="utf-8"))
+    pattern = next(item["regex"] for item in rules["patterns"] if item["name"] == "lot_address_no_sido")
+    regex = re.compile(pattern)
+    started = time.perf_counter()
+    found = regex.search("x" * 50_000)
+
+    assert found is None
+    assert time.perf_counter() - started < 2.0
+
+
+def test_address_without_sido_still_detected_after_component_bound():
+    rules = yaml.safe_load((Path(__file__).parent / "rules" / "an.yaml").read_text(encoding="utf-8"))
+    pattern = next(item["regex"] for item in rules["patterns"] if item["name"] == "lot_address_no_sido")
+    found = re.compile(pattern).search("파주군 금촌읍 금촌리 59의9번지")
+
+    assert found is not None
+    assert found.group(0) == "파주군 금촌읍 금촌리 59의9번지"

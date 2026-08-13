@@ -1,5 +1,11 @@
+x-json-logging: &json-logging
+  driver: json-file
+  options:
+    max-size: "${PII_DOCKER_LOG_MAX_SIZE:-100m}"
+    max-file: "${PII_DOCKER_LOG_MAX_FILE:-5}"
+
 x-http-api-base: &http-api-base
-  image: ${PII_IMAGE_REPO:-xcn-pii}/api-http-cpu:${PII_IMAGE_TAG:-latest}
+  image: ${PII_IMAGE_REPO:-xcn-pii}/api-http-${PII_RUNTIME_BACKEND:-cpu}:${PII_IMAGE_TAG:-latest}
   command: ["sh", "-c", "uvicorn app.main:app --host 0.0.0.0 --port 8000 --workers ${UVICORN_WORKERS:-1}"]
   environment:
     - TZ=Asia/Seoul
@@ -8,12 +14,13 @@ x-http-api-base: &http-api-base
     - PII_LOG_LEVEL=${PII_LOG_LEVEL:-INFO}
     - PII_FILE_LOG_ENABLED=true
     - PII_STAGE_TIMING_ENABLED=${PII_STAGE_TIMING_ENABLED:-false}
+    - PII_LOG_REQUEST_TEXT_ENABLED=${PII_LOG_REQUEST_TEXT_ENABLED:-false}
     - PII_STAGE_LOG_ENABLED=${PII_STAGE_LOG_ENABLED:-false}
     - PII_TRACE_DETECT=${PII_TRACE_DETECT:-false}
     - PII_TRACE_SLOW_MS=${PII_TRACE_SLOW_MS:-800}
     - PII_MIN_SCORE=${PII_MIN_SCORE:-0.6}
     - PII_MAX_SPANS=${PII_MAX_SPANS:-200}
-    - PII_EMBED_DEVICE=cpu
+    - PII_EMBED_DEVICE=${PII_EMBED_DEVICE:-cpu}
     - PII_HF_OFFLINE=true
     - HF_HUB_OFFLINE=1
     - TRANSFORMERS_OFFLINE=1
@@ -27,15 +34,12 @@ x-http-api-base: &http-api-base
     - PII_CONTEXT_RULE_FIRST_ENABLED=${PII_CONTEXT_RULE_FIRST_ENABLED:-true}
     - PII_FASTPATH_ENABLED=${PII_FASTPATH_ENABLED:-true}
     - PII_FASTPATH_TEXT_LEN=${PII_FASTPATH_TEXT_LEN:-50000}
-    - PII_FASTPATH_TARGET_KEYS=${PII_FASTPATH_TARGET_KEYS:-SN,FN,SSN,DN,PN,MN,BRN,AN,EML,CN,VN_CCCD,VN_MN,VN_PN,VN_TIN,VN_SI}
-    - PII_FASTPATH_MAX_RESULTS_PER_TYPE=${PII_FASTPATH_MAX_RESULTS_PER_TYPE:-200}
     - PII_SPLIT_ENABLED=${PII_SPLIT_ENABLED:-true}
     - PII_SPLIT_TEXT_LEN=${PII_SPLIT_TEXT_LEN:-50000}
     - PII_SPLIT_CHUNK_CHARS=${PII_SPLIT_CHUNK_CHARS:-50000}
     - PII_SPLIT_OVERLAP_CHARS=${PII_SPLIT_OVERLAP_CHARS:-2000}
     - PII_SPLIT_MAX_CHUNKS=${PII_SPLIT_MAX_CHUNKS:-64}
     - PII_SPLIT_MAX_WORKERS=${PII_SPLIT_MAX_WORKERS:-1}
-    - PII_SPLIT_MAX_RESULTS_PER_TYPE=${PII_SPLIT_MAX_RESULTS_PER_TYPE:-200}
     - PII_MODEL_PRELOAD_ENABLED=${PII_MODEL_PRELOAD_ENABLED:-true}
     - PII_STAGE_TIMING_LEVEL=${PII_STAGE_TIMING_LEVEL:-INFO}
     - PII_LOG_SERVICE_NAME=api-http
@@ -43,6 +47,7 @@ x-http-api-base: &http-api-base
     - hf_cache:/data/hf
     - ./data:/app/data
     - ./logs:/logs
+  logging: *json-logging
   restart: unless-stopped
 
 services:
@@ -62,7 +67,7 @@ services:
 
   api-grpc-1: &grpc-api-base
     profiles: ["grpc"]
-    image: ${PII_IMAGE_REPO:-xcn-pii}/api-grpc-cpu:${PII_IMAGE_TAG:-latest}
+    image: ${PII_IMAGE_REPO:-xcn-pii}/api-grpc-${PII_RUNTIME_BACKEND:-cpu}:${PII_IMAGE_TAG:-latest}
     command: ["python", "-m", "app.grpc_server"]
     container_name: xcn-pii-api-grpc-1
     hostname: grpc-1
@@ -75,6 +80,7 @@ services:
       - PII_LOG_LEVEL=${PII_LOG_LEVEL:-INFO}
       - PII_FILE_LOG_ENABLED=true
       - PII_STAGE_TIMING_ENABLED=${PII_STAGE_TIMING_ENABLED:-false}
+      - PII_LOG_REQUEST_TEXT_ENABLED=${PII_LOG_REQUEST_TEXT_ENABLED:-false}
       - PII_STAGE_LOG_ENABLED=${PII_STAGE_LOG_ENABLED:-false}
       - PII_TRACE_DETECT=${PII_TRACE_DETECT:-false}
       - PII_TRACE_SLOW_MS=${PII_TRACE_SLOW_MS:-800}
@@ -93,7 +99,7 @@ services:
       - PII_DETECT_QUEUE_LIMIT=${PII_DETECT_QUEUE_LIMIT:-1}
       - PII_DETECT_PROCESS_START_METHOD=${PII_DETECT_PROCESS_START_METHOD:-spawn}
       - PII_DETECT_WORKER_TORCH_THREADS=${PII_DETECT_WORKER_TORCH_THREADS:-1}
-      - PII_EMBED_DEVICE=cpu
+      - PII_EMBED_DEVICE=${PII_EMBED_DEVICE:-cpu}
       - PII_HF_OFFLINE=true
       - HF_HUB_OFFLINE=1
       - TRANSFORMERS_OFFLINE=1
@@ -107,15 +113,12 @@ services:
       - PII_CONTEXT_RULE_FIRST_ENABLED=${PII_CONTEXT_RULE_FIRST_ENABLED:-true}
       - PII_FASTPATH_ENABLED=${PII_FASTPATH_ENABLED:-true}
       - PII_FASTPATH_TEXT_LEN=${PII_FASTPATH_TEXT_LEN:-50000}
-      - PII_FASTPATH_TARGET_KEYS=${PII_FASTPATH_TARGET_KEYS:-SN,FN,SSN,DN,PN,MN,BRN,AN,EML,CN,VN_CCCD,VN_MN,VN_PN,VN_TIN,VN_SI}
-      - PII_FASTPATH_MAX_RESULTS_PER_TYPE=${PII_FASTPATH_MAX_RESULTS_PER_TYPE:-200}
       - PII_SPLIT_ENABLED=${PII_SPLIT_ENABLED:-true}
       - PII_SPLIT_TEXT_LEN=${PII_SPLIT_TEXT_LEN:-50000}
       - PII_SPLIT_CHUNK_CHARS=${PII_SPLIT_CHUNK_CHARS:-50000}
       - PII_SPLIT_OVERLAP_CHARS=${PII_SPLIT_OVERLAP_CHARS:-2000}
       - PII_SPLIT_MAX_CHUNKS=${PII_SPLIT_MAX_CHUNKS:-64}
       - PII_SPLIT_MAX_WORKERS=${PII_SPLIT_MAX_WORKERS:-1}
-      - PII_SPLIT_MAX_RESULTS_PER_TYPE=${PII_SPLIT_MAX_RESULTS_PER_TYPE:-200}
       - PII_MODEL_PRELOAD_ENABLED=${PII_MODEL_PRELOAD_ENABLED:-true}
       - PII_STAGE_TIMING_LEVEL=${PII_STAGE_TIMING_LEVEL:-INFO}
       - PII_LOG_FILE_NAME=pii-api-grpc-1.log
@@ -127,6 +130,7 @@ services:
       default:
         aliases:
           - api-grpc
+    logging: *json-logging
     restart: unless-stopped
 
   api-grpc-2:
@@ -140,6 +144,7 @@ services:
       - PII_LOG_LEVEL=${PII_LOG_LEVEL:-INFO}
       - PII_FILE_LOG_ENABLED=true
       - PII_STAGE_TIMING_ENABLED=${PII_STAGE_TIMING_ENABLED:-false}
+      - PII_LOG_REQUEST_TEXT_ENABLED=${PII_LOG_REQUEST_TEXT_ENABLED:-false}
       - PII_STAGE_LOG_ENABLED=${PII_STAGE_LOG_ENABLED:-false}
       - PII_TRACE_DETECT=${PII_TRACE_DETECT:-false}
       - PII_TRACE_SLOW_MS=${PII_TRACE_SLOW_MS:-800}
@@ -158,7 +163,7 @@ services:
       - PII_DETECT_QUEUE_LIMIT=${PII_DETECT_QUEUE_LIMIT:-1}
       - PII_DETECT_PROCESS_START_METHOD=${PII_DETECT_PROCESS_START_METHOD:-spawn}
       - PII_DETECT_WORKER_TORCH_THREADS=${PII_DETECT_WORKER_TORCH_THREADS:-1}
-      - PII_EMBED_DEVICE=cpu
+      - PII_EMBED_DEVICE=${PII_EMBED_DEVICE:-cpu}
       - PII_HF_OFFLINE=true
       - HF_HUB_OFFLINE=1
       - TRANSFORMERS_OFFLINE=1
@@ -172,15 +177,12 @@ services:
       - PII_CONTEXT_RULE_FIRST_ENABLED=${PII_CONTEXT_RULE_FIRST_ENABLED:-true}
       - PII_FASTPATH_ENABLED=${PII_FASTPATH_ENABLED:-true}
       - PII_FASTPATH_TEXT_LEN=${PII_FASTPATH_TEXT_LEN:-50000}
-      - PII_FASTPATH_TARGET_KEYS=${PII_FASTPATH_TARGET_KEYS:-SN,FN,SSN,DN,PN,MN,BRN,AN,EML,CN,VN_CCCD,VN_MN,VN_PN,VN_TIN,VN_SI}
-      - PII_FASTPATH_MAX_RESULTS_PER_TYPE=${PII_FASTPATH_MAX_RESULTS_PER_TYPE:-200}
       - PII_SPLIT_ENABLED=${PII_SPLIT_ENABLED:-true}
       - PII_SPLIT_TEXT_LEN=${PII_SPLIT_TEXT_LEN:-50000}
       - PII_SPLIT_CHUNK_CHARS=${PII_SPLIT_CHUNK_CHARS:-50000}
       - PII_SPLIT_OVERLAP_CHARS=${PII_SPLIT_OVERLAP_CHARS:-2000}
       - PII_SPLIT_MAX_CHUNKS=${PII_SPLIT_MAX_CHUNKS:-64}
       - PII_SPLIT_MAX_WORKERS=${PII_SPLIT_MAX_WORKERS:-1}
-      - PII_SPLIT_MAX_RESULTS_PER_TYPE=${PII_SPLIT_MAX_RESULTS_PER_TYPE:-200}
       - PII_MODEL_PRELOAD_ENABLED=${PII_MODEL_PRELOAD_ENABLED:-true}
       - PII_STAGE_TIMING_LEVEL=${PII_STAGE_TIMING_LEVEL:-INFO}
       - PII_LOG_FILE_NAME=pii-api-grpc-2.log
@@ -196,6 +198,7 @@ services:
       - PII_LOG_LEVEL=${PII_LOG_LEVEL:-INFO}
       - PII_FILE_LOG_ENABLED=true
       - PII_STAGE_TIMING_ENABLED=${PII_STAGE_TIMING_ENABLED:-false}
+      - PII_LOG_REQUEST_TEXT_ENABLED=${PII_LOG_REQUEST_TEXT_ENABLED:-false}
       - PII_STAGE_LOG_ENABLED=${PII_STAGE_LOG_ENABLED:-false}
       - PII_TRACE_DETECT=${PII_TRACE_DETECT:-false}
       - PII_TRACE_SLOW_MS=${PII_TRACE_SLOW_MS:-800}
@@ -214,7 +217,7 @@ services:
       - PII_DETECT_QUEUE_LIMIT=${PII_DETECT_QUEUE_LIMIT:-1}
       - PII_DETECT_PROCESS_START_METHOD=${PII_DETECT_PROCESS_START_METHOD:-spawn}
       - PII_DETECT_WORKER_TORCH_THREADS=${PII_DETECT_WORKER_TORCH_THREADS:-1}
-      - PII_EMBED_DEVICE=cpu
+      - PII_EMBED_DEVICE=${PII_EMBED_DEVICE:-cpu}
       - PII_HF_OFFLINE=true
       - HF_HUB_OFFLINE=1
       - TRANSFORMERS_OFFLINE=1
@@ -228,15 +231,12 @@ services:
       - PII_CONTEXT_RULE_FIRST_ENABLED=${PII_CONTEXT_RULE_FIRST_ENABLED:-true}
       - PII_FASTPATH_ENABLED=${PII_FASTPATH_ENABLED:-true}
       - PII_FASTPATH_TEXT_LEN=${PII_FASTPATH_TEXT_LEN:-50000}
-      - PII_FASTPATH_TARGET_KEYS=${PII_FASTPATH_TARGET_KEYS:-SN,FN,SSN,DN,PN,MN,BRN,AN,EML,CN,VN_CCCD,VN_MN,VN_PN,VN_TIN,VN_SI}
-      - PII_FASTPATH_MAX_RESULTS_PER_TYPE=${PII_FASTPATH_MAX_RESULTS_PER_TYPE:-200}
       - PII_SPLIT_ENABLED=${PII_SPLIT_ENABLED:-true}
       - PII_SPLIT_TEXT_LEN=${PII_SPLIT_TEXT_LEN:-50000}
       - PII_SPLIT_CHUNK_CHARS=${PII_SPLIT_CHUNK_CHARS:-50000}
       - PII_SPLIT_OVERLAP_CHARS=${PII_SPLIT_OVERLAP_CHARS:-2000}
       - PII_SPLIT_MAX_CHUNKS=${PII_SPLIT_MAX_CHUNKS:-64}
       - PII_SPLIT_MAX_WORKERS=${PII_SPLIT_MAX_WORKERS:-1}
-      - PII_SPLIT_MAX_RESULTS_PER_TYPE=${PII_SPLIT_MAX_RESULTS_PER_TYPE:-200}
       - PII_MODEL_PRELOAD_ENABLED=${PII_MODEL_PRELOAD_ENABLED:-true}
       - PII_STAGE_TIMING_LEVEL=${PII_STAGE_TIMING_LEVEL:-INFO}
       - PII_LOG_FILE_NAME=pii-api-grpc-3.log
@@ -253,6 +253,26 @@ services:
       - "${PII_GRPC_LB_PORT:-50055}:50051"
     volumes:
       - ./infra/haproxy/grpc-lb.cfg:/usr/local/etc/haproxy/haproxy.cfg:ro
+    logging: *json-logging
+    restart: unless-stopped
+
+  logrotate:
+    profiles: ["http", "https", "grpc"]
+    image: ${PII_IMAGE_REPO:-xcn-pii}/api-grpc-${PII_RUNTIME_BACKEND:-cpu}:${PII_IMAGE_TAG:-latest}
+    container_name: xcn-pii-logrotate
+    command: ["python", "-m", "app.logrotate"]
+    environment:
+      - TZ=Asia/Seoul
+      - PII_LOG_DIR=/logs
+      - PII_LOG_LEVEL=${PII_LOG_LEVEL:-INFO}
+      - PII_LOG_MAX_FILE_MB=${PII_LOG_MAX_FILE_MB:-100}
+      - PII_LOG_TOTAL_MAX_MB=${PII_LOG_TOTAL_MAX_MB:-10240}
+      - PII_LOG_BACKUP_DAYS=${PII_LOG_BACKUP_DAYS:-30}
+      - PII_LOG_ROTATE_INTERVAL_SEC=${PII_LOG_ROTATE_INTERVAL_SEC:-30}
+      - PII_LOG_ACTIVE_GLOBS=${PII_LOG_ACTIVE_GLOBS:-pii-api-grpc-1.log,pii-api-grpc-2.log,pii-api-grpc-3.log,pii-api-api-http-*.log,pii-api-api-grpc-*.log}
+    volumes:
+      - ./logs:/logs
+    logging: *json-logging
     restart: unless-stopped
 
   https-proxy:
@@ -272,6 +292,7 @@ services:
     volumes:
       - ./infra/nginx/https.conf.template:/etc/nginx/templates/default.conf.template:ro
       - ./certs:/etc/nginx/certs:ro
+    logging: *json-logging
     restart: unless-stopped
 
 volumes:

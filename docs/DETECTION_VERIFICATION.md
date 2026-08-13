@@ -17,7 +17,7 @@
 
 ## 2. 현재 탐지 대상
 
-default ruleset 기준으로 실제 pipeline에 포함된 탐지 항목은 다음 16개다.
+default ruleset 기준으로 실제 pipeline에 포함된 탐지 항목은 다음 20개다.
 
 | 키 | 의미 | default 탐지 | strict 탐지 | 문맥 필터 대상 |
 |---|---|---:|---:|---:|
@@ -28,8 +28,12 @@ default ruleset 기준으로 실제 pipeline에 포함된 탐지 항목은 다�
 | `PN` | 여권번호 | O | O | O |
 | `EML` | 이메일 | O | O | X |
 | `CN` | 카드번호 | O | O | O |
+| `CPN` | 법인등록번호 | O | O | O |
+| `CRN` | 차량등록번호 | O | O | O |
+| `IMEI` | 단말기 IMEI | O | O | O |
+| `MCN` | 의료/보험 관련 번호 | O | O | O |
 | `MN` | 전화번호/휴대폰번호 | O | O | X |
-| `BRN` | 사업자등록번호 | O | O | X |
+| `BRN` | 사업자등록번호 | O | O | O |
 | `BN` | 계좌번호 | O | O | O |
 | `AN` | 주소 | O | O | X |
 | `VN_CCCD` | 베트남 시민신분증/개인식별번호 | O | O | O |
@@ -48,6 +52,7 @@ default ruleset 기준으로 실제 pipeline에 포함된 탐지 항목은 다�
 
 - `EML`은 문맥 필터 대상은 아니지만 탐지 자체는 켜져 있다.
 - `MN`도 문맥 필터 대상은 아니므로 전화번호는 기본 정규식 탐지 결과가 바로 반환된다.
+- `AN`도 의도적으로 문맥 필터 대상에서 제외하며 주소 구조와 주소 후처리 결과를 반환한다.
 - `strict` ruleset에는 `post_context` 단계가 없으므로 문맥 필터 검증은 default ruleset 기준으로 수행한다.
 
 ## 3. 문맥 필터 기준
@@ -70,6 +75,10 @@ context:
     - BRN
     - BN
     - CN
+    - CPN
+    - CRN
+    - IMEI
+    - MCN
     - VN_CCCD
     - VN_MN
     - VN_PN
@@ -77,7 +86,11 @@ context:
     - VN_SI
 ```
 
-문맥 필터 대상은 `SN`, `FN`, `SSN`, `DN`, `PN`, `BRN`, `BN`, `CN`, `VN_CCCD`, `VN_MN`, `VN_PN`, `VN_TIN`, `VN_SI`이다.
+문맥 필터 대상은 `SN`, `FN`, `SSN`, `DN`, `PN`, `BRN`, `BN`, `CN`, `CPN`, `CRN`, `IMEI`, `MCN`, `VN_CCCD`, `VN_MN`, `VN_PN`, `VN_TIN`, `VN_SI`이다. `MN`, `EML`, `AN`은 의도적으로 제외한 현재 정책을 유지한다.
+
+`sim_threshold`는 원시 cosine 유사도가 아니라 양성 최대 유사도와 음성 최대 유사도의 차이를
+`[0, 1]`로 변환한 `context_score_norm`과 비교한다. 하드 부정어는 기본적으로 후보와 같은 행의
+앞뒤 48자 안에서만 적용한다.
 
 베트남 전용 타입 검증 시에는 다음 라벨을 함께 포함하는 샘플을 사용한다.
 

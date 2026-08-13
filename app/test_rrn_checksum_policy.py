@@ -61,6 +61,9 @@ def test_rrn_flexible_spacing_and_delimiter_variants_are_detected():
     bundle = load_rules(rules_dir="app/rules", ruleset_name="default")
     pipeline = build_pipeline(bundle)
     cases = [
+        "홍길동 890512 2054508",
+        "홍길동 890512\t2054508",
+        "홍길동 890512 - 2054508",
         "홍길동 8 9 0 5 1 2 - 2 0 5 4 5 0 8",
         "홍길동 8 9 0 5 1 2 2 0 5 4 5 0 8",
         "홍길동 890512*2054508",
@@ -75,3 +78,14 @@ def test_rrn_flexible_spacing_and_delimiter_variants_are_detected():
         assert len(ctx.get("SN") or []) == 1
         assert ctx.get("SN")[0]["matchString"] == text.replace("홍길동 ", "")
         assert ctx.get("SN")[0]["checksum_status"] == "checksum_pass"
+
+
+def test_rrn_space_separator_does_not_cross_newline():
+    bundle = load_rules(rules_dir="app/rules", ruleset_name="default")
+    pipeline = build_pipeline(bundle)
+    ctx = DetectContext(text="주번 890512\n2054508", max_results=20, out={})
+
+    for detector in pipeline:
+        detector.run(ctx)
+
+    assert ctx.get("SN") == []

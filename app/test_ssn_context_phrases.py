@@ -109,6 +109,7 @@ def test_context_accepts_added_indicator_variants_by_type():
         ("SN", "resident registration number 890512-2054508", "890512-2054508"),
         ("DN", "driver licence number 11-22-333333-44", "11-22-333333-44"),
         ("PN", "passport no. M12345678", "M12345678"),
+        ("BRN", "business registration number 110-81-40818", "110-81-40818"),
         ("MN", "핸드폰번호 010-1234-5678", "010-1234-5678"),
         ("BN", "환불계좌 123456-01-123456", "123456-01-123456"),
         ("CN", "cc number 4111-1111-1111-1111", "4111-1111-1111-1111"),

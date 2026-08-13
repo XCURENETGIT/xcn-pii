@@ -35,9 +35,11 @@ patterns:
     regex: '{SIDO}(?:특별시|광역시|특별자치시|특별자치도|도|시)?\s+\S+(?:시|군|구)\s+\S+(?:읍|면|동|리)'
   - name: lot_address_no_sido
     # Example: 파주군 금촌읍 금촌리 59의9번지
-    expr: '[가-힣A-Za-z0-9]+(?:시|군|구)\s+[가-힣A-Za-z0-9]+(?:읍|면|동|리)\s+[가-힣A-Za-z0-9]+(?:리|동|읍|면)?\s*\d{1,4}(?:의\d{1,4}|-\d{1,4})?(?:번지)?'
-    verify_regex: '[가-힣A-Za-z0-9]+(?:시|군|구)\s+[가-힣A-Za-z0-9]+(?:읍|면|동|리)\s+[가-힣A-Za-z0-9]+(?:리|동|읍|면)?\s*\d{1,4}(?:의\d{1,4}|-\d{1,4})?(?:번지)?'
-    regex: '[가-힣A-Za-z0-9]+(?:시|군|구)\s+[가-힣A-Za-z0-9]+(?:읍|면|동|리)\s+[가-힣A-Za-z0-9]+(?:리|동|읍|면)?\s*\d{1,4}(?:의\d{1,4}|-\d{1,4})?(?:번지)?'
+    # Administrative components are short in practice. Bounding them avoids
+    # quadratic backtracking on very long delimiter-free ASCII input.
+    expr: '[가-힣A-Za-z0-9]{1,40}(?:시|군|구)\s+[가-힣A-Za-z0-9]{1,40}(?:읍|면|동|리)\s+[가-힣A-Za-z0-9]{1,40}(?:리|동|읍|면)?\s*\d{1,4}(?:의\d{1,4}|-\d{1,4})?(?:번지)?'
+    verify_regex: '[가-힣A-Za-z0-9]{1,40}(?:시|군|구)\s+[가-힣A-Za-z0-9]{1,40}(?:읍|면|동|리)\s+[가-힣A-Za-z0-9]{1,40}(?:리|동|읍|면)?\s*\d{1,4}(?:의\d{1,4}|-\d{1,4})?(?:번지)?'
+    regex: '[가-힣A-Za-z0-9]{1,40}(?:시|군|구)\s+[가-힣A-Za-z0-9]{1,40}(?:읍|면|동|리)\s+[가-힣A-Za-z0-9]{1,40}(?:리|동|읍|면)?\s*\d{1,4}(?:의\d{1,4}|-\d{1,4})?(?:번지)?'
 
 # Maximum captured match length used by the cursor scanner.
 max_match_len: 220

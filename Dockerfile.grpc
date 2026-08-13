@@ -25,6 +25,7 @@ RUN python setup.py build_ext --inplace \
       ! -name 'context_debug_api.py' \
       ! -name 'detection_exclusions.py' \
       ! -name 'logging_utils.py' \
+      ! -name 'logrotate.py' \
       ! -name 'pii.py' \
       ! -name 'response_builders.py' \
       ! -name 'rules_loader.py' \

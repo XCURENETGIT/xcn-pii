@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from collections import defaultdict
+from bisect import bisect_right
 from typing import Any, DefaultDict, Dict, List, Pattern, Tuple
 
 from .common import *
@@ -40,36 +41,17 @@ def _get_context_window_from_spans(
     start: int,
     end: int,
     window_sentences: int = 2,
+    span_starts: List[int] | None = None,
 ) -> Tuple[str, int, int]:
     if not spans:
         return ("", 0, 0)
 
-    idx_start = None
-    idx_end = None
-    for i, (s, e) in enumerate(spans):
-        if idx_start is None and s <= start < e:
-            idx_start = i
-        if idx_end is None and s <= end <= e:
-            idx_end = i
-        if idx_start is not None and idx_end is not None:
-            break
-
-    if idx_start is None:
-        for i, (s, e) in enumerate(spans):
-            if start < e:
-                idx_start = i
-                break
-    if idx_start is None:
-        idx_start = 0
-
-    if idx_end is None:
-        for i in range(len(spans) - 1, -1, -1):
-            s, e = spans[i]
-            if end >= s:
-                idx_end = i
-                break
-    if idx_end is None:
-        idx_end = len(spans) - 1
+    starts = span_starts if span_starts is not None else [s for s, _ in spans]
+    idx_start = max(0, min(len(spans) - 1, bisect_right(starts, int(start)) - 1))
+    if int(start) >= spans[idx_start][1] and idx_start + 1 < len(spans):
+        idx_start += 1
+    end_anchor = max(int(start), int(end) - 1)
+    idx_end = max(idx_start, min(len(spans) - 1, bisect_right(starts, end_anchor) - 1))
 
     s_idx = max(0, idx_start - window_sentences)
     e_idx = min(len(spans) - 1, idx_end + window_sentences)
@@ -338,6 +320,60 @@ def _find_matching_phrase(text: str, phrases: List[str]) -> str:
     return ""
 
 
+def _find_hard_negative_phrase(text: str, phrases: List[str]) -> str:
+    """Find an explicit negative marker without partial ASCII-word matches.
+
+    Korean markers continue to use normalized substring matching, while ASCII
+    markers such as ``test`` must be token-bounded so words like ``latest`` do
+    not become accidental hard negatives.
+    """
+    normalized = _normalize_match_text(text)
+    if not normalized or not phrases:
+        return ""
+    for phrase in phrases:
+        raw = str(phrase or "").strip()
+        if not raw:
+            continue
+        marker = _normalize_match_text(raw)
+        if re.fullmatch(r"[a-z0-9 _./#-]+", marker):
+            if re.search(rf"(?<![a-z0-9]){re.escape(marker)}(?![a-z0-9])", normalized):
+                return raw
+        elif marker in normalized:
+            return raw
+    return ""
+
+
+def _context_text_for_scope(
+    text: str,
+    snippet: str,
+    start: int,
+    end: int,
+    scope: str,
+    near_window_chars: int = 48,
+) -> str:
+    """Select text used by deterministic context rules.
+
+    The default ``near`` scope prevents a marker in another sentence or table
+    row from rejecting an otherwise valid candidate.
+    """
+    mode = str(scope or "near").strip().lower()
+    if mode == "text":
+        return str(text or "")
+    if mode == "snippet":
+        return str(snippet or "")
+    window = max(0, int(near_window_chars))
+    source = str(text or "")
+    candidate_start = max(0, min(int(start), len(source)))
+    candidate_end = max(candidate_start, min(int(end), len(source)))
+    line_start = source.rfind("\n", 0, candidate_start) + 1
+    line_end = source.find("\n", candidate_end)
+    if line_end < 0:
+        line_end = len(source)
+    s = max(line_start, candidate_start - window)
+    e = min(line_end, candidate_end + window)
+    return source[s:e]
+
+
 def _line_index_at(text: str, pos: int) -> int:
     if not text:
         return 0
@@ -401,6 +437,11 @@ _NAME_PII_ROW_EXCLUDE_TOKENS = {
     "문서번호",
     "문서관리",
     "문서관리번호",
+    "정리표",
+    "목록표",
+    "관리표",
+    "내역표",
+    "현황표",
     "내부문서",
     "룰라",
     "룰루",

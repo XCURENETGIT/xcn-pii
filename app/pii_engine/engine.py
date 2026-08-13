@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import os
 import time
+import threading
 from typing import Any, Dict, List, Tuple
 
 from .common import *
@@ -67,24 +68,14 @@ class PiiEngine:
         stage_log = _trace_stage_enabled()
         slow_ms = max(100, _env_int("PII_TRACE_SLOW_MS", 1500))
 
-        # Auto fast-path for very long inputs.
-        # Controlled by env:
-        # - PII_FASTPATH_ENABLED (default=true)
-        # - PII_FASTPATH_TEXT_LEN (default=50000)
-        # - PII_FASTPATH_MAX_RESULTS_PER_TYPE (default=200)
-        # - PII_FASTPATH_TARGET_KEYS (default=SN,FN,SSN,DN,PN,MN,BRN,AN,EML,CN,CPN,CRN,IMEI,MCN,VN_CCCD,VN_MN,VN_PN,VN_TIN,VN_SI)
+        # Keep large-input detection semantically identical to normal detection.
+        # The flag remains telemetry-only for compatibility with existing
+        # deployments; it must not disable types, lower result caps, or replace
+        # the configured context method based only on input length.
         text_len = len(source_text)
         fast_enabled = _env_bool("PII_FASTPATH_ENABLED", True)
         fast_len = max(1, _env_int("PII_FASTPATH_TEXT_LEN", 50000))
-        fast_max = max(1, _env_int("PII_FASTPATH_MAX_RESULTS_PER_TYPE", 200))
-        fast_keys = _env_csv_upper(
-            "PII_FASTPATH_TARGET_KEYS",
-            "SN,FN,SSN,DN,PN,MN,BRN,AN,EML,CN,CPN,CRN,IMEI,MCN,VN_CCCD,VN_MN,VN_PN,VN_TIN,VN_SI",
-        )
         fast_mode = bool(fast_enabled and text_len >= fast_len)
-        allowed_keys = set(fast_keys)
-        if fast_mode:
-            max_results = min(max_results, fast_max)
 
         # decide whether to include context debug info (param overrides env)
         include_debug = include_context_debug if include_context_debug is not None else _env_bool("PII_INCLUDE_CONTEXT_DEBUG", False)
@@ -95,107 +86,54 @@ class PiiEngine:
             max_results=max_results,
             out={},
             request_id=_request_id(source_text),
+            include_context_debug=bool(include_debug),
         )
 
-        # set debug flags on pipeline detectors that support it
-        restore: List[Tuple[Any, str, Any]] = []
-        for step in self.pipeline:
-            if hasattr(step, "debug"):
-                try:
-                    restore.append((step, "debug", getattr(step, "debug")))
-                    setattr(step, "debug", bool(include_debug))
-                except Exception:
-                    pass
-
-            if not fast_mode:
-                continue
-
-            # Reduce detector scope for long text.
-            try:
-                if isinstance(step, RegexDetector):
-                    if step.out_key.upper() not in allowed_keys:
-                        restore.append((step, "enabled", step.enabled))
-                        step.enabled = False
-                elif isinstance(step, SNDetector):
-                    if "SN" not in allowed_keys and "FN" not in allowed_keys:
-                        restore.append((step, "enabled", step.enabled))
-                        step.enabled = False
-                elif isinstance(step, DNDetector):
-                    if "DN" not in allowed_keys:
-                        restore.append((step, "enabled", step.enabled))
-                        step.enabled = False
-                elif isinstance(step, MNPostFilter):
-                    if "MN" not in allowed_keys:
-                        restore.append((step, "enabled", step.enabled))
-                        step.enabled = False
-                elif isinstance(step, BNPostFilter):
-                    if "BN" not in allowed_keys:
-                        restore.append((step, "enabled", step.enabled))
-                        step.enabled = False
-                elif isinstance(step, ContextualPostFilter):
-                    restore.append((step, "target_keys", list(step.target_keys)))
-                    step.target_keys = [x for x in step.target_keys if str(x).upper() in allowed_keys]
-                elif isinstance(step, ContextualLLMPostFilter):
-                    restore.append((step, "target_keys", list(step.target_keys)))
-                    step.target_keys = [x for x in step.target_keys if str(x).upper() in allowed_keys]
-                    restore.append((step, "force_keyword_mode", bool(step.force_keyword_mode)))
-                    step.force_keyword_mode = True
-            except Exception:
-                continue
-
         t0_all = time.perf_counter()
-        try:
-            for idx, step in enumerate(self.pipeline, start=1):
-                before = _summarize_counts(ctx.out) if stage_log else {}
-                if stage_log:
-                    logger.info(
-                        "[stage][pipeline] step_start idx=%d name=%s text_len=%d max_results=%d",
-                        idx,
-                        _step_name(step),
-                        len(source_text),
-                        max_results,
-                    )
-                t0_step = time.perf_counter()
-                step.run(ctx)
-                dt_step = (time.perf_counter() - t0_step) * 1000.0
-                if stage_log:
-                    after = _summarize_counts(ctx.out)
-                    deltas = []
-                    for k in after.keys():
-                        diff = int(after.get(k, 0)) - int(before.get(k, 0))
-                        if diff != 0:
-                            deltas.append(f"{k}:{diff:+d}")
-                    logger.info(
-                        "[stage][pipeline] step_done idx=%d name=%s ms=%.1f delta=%s",
-                        idx,
-                        _step_name(step),
-                        dt_step,
-                        ",".join(deltas) if deltas else "none",
-                    )
-                _log_timing(
-                    "pipeline",
-                    req_id=ctx.request_id,
-                    idx=idx,
-                    name=_step_name(step),
-                    ms=f"{dt_step:.1f}",
-                    text_len=len(source_text),
-                    max_results=max_results,
+        for idx, step in enumerate(self.pipeline, start=1):
+            before = _summarize_counts(ctx.out) if stage_log else {}
+            if stage_log:
+                logger.info(
+                    "[stage][pipeline] step_start idx=%d name=%s text_len=%d max_results=%d",
+                    idx,
+                    _step_name(step),
+                    len(source_text),
+                    max_results,
                 )
-                if trace and dt_step >= slow_ms:
-                    logger.info(
-                        "[trace] step slow idx=%d name=%s ms=%.1f text_len=%d",
-                        idx,
-                        _step_name(step),
-                        dt_step,
-                        len(source_text),
-                    )
-        finally:
-            # Restore mutable detector attributes to keep engine cache safe.
-            for obj, attr, val in reversed(restore):
-                try:
-                    setattr(obj, attr, val)
-                except Exception:
-                    pass
+            t0_step = time.perf_counter()
+            step.run(ctx)
+            dt_step = (time.perf_counter() - t0_step) * 1000.0
+            if stage_log:
+                after = _summarize_counts(ctx.out)
+                deltas = []
+                for k in after.keys():
+                    diff = int(after.get(k, 0)) - int(before.get(k, 0))
+                    if diff != 0:
+                        deltas.append(f"{k}:{diff:+d}")
+                logger.info(
+                    "[stage][pipeline] step_done idx=%d name=%s ms=%.1f delta=%s",
+                    idx,
+                    _step_name(step),
+                    dt_step,
+                    ",".join(deltas) if deltas else "none",
+                )
+            _log_timing(
+                "pipeline",
+                req_id=ctx.request_id,
+                idx=idx,
+                name=_step_name(step),
+                ms=f"{dt_step:.1f}",
+                text_len=len(source_text),
+                max_results=max_results,
+            )
+            if trace and dt_step >= slow_ms:
+                logger.info(
+                    "[trace] step slow idx=%d name=%s ms=%.1f text_len=%d",
+                    idx,
+                    _step_name(step),
+                    dt_step,
+                    len(source_text),
+                )
         if trace:
             dt_all = (time.perf_counter() - t0_all) * 1000.0
             logger.info(
@@ -267,6 +205,7 @@ class PiiEngine:
 # ============================================================
 
 _ENGINE_REGISTRY: dict[tuple[str, str], PiiEngine] = {}
+_ENGINE_REGISTRY_LOCK = threading.RLock()
 
 
 def _env(name: str, default: str) -> str:
@@ -338,21 +277,22 @@ def get_engine(*, ruleset: str | None = None, rules_dir: str | None = None) -> P
     rd = (rules_dir or _env('PII_RULES_DIR', 'app/rules')).strip()
     key = (rd, rs)
 
-    eng = _ENGINE_REGISTRY.get(key)
-    if eng is None:
-        bundle = load_rules(rules_dir=rd, ruleset_name=rs)
-        pipeline = build_pipeline(bundle)
-        eng = PiiEngine(bundle=bundle, pipeline=pipeline)
-        _ENGINE_REGISTRY[key] = eng
+    with _ENGINE_REGISTRY_LOCK:
+        eng = _ENGINE_REGISTRY.get(key)
+        if eng is None:
+            bundle = load_rules(rules_dir=rd, ruleset_name=rs)
+            pipeline = build_pipeline(bundle)
+            eng = PiiEngine(bundle=bundle, pipeline=pipeline)
+            _ENGINE_REGISTRY[key] = eng
+            return eng
+
+        if bundle_needs_reload(eng.bundle):
+            bundle = load_rules(rules_dir=rd, ruleset_name=rs)
+            pipeline = build_pipeline(bundle)
+            eng = PiiEngine(bundle=bundle, pipeline=pipeline)
+            _ENGINE_REGISTRY[key] = eng
+
         return eng
-
-    if bundle_needs_reload(eng.bundle):
-        bundle = load_rules(rules_dir=rd, ruleset_name=rs)
-        pipeline = build_pipeline(bundle)
-        eng = PiiEngine(bundle=bundle, pipeline=pipeline)
-        _ENGINE_REGISTRY[key] = eng
-
-    return eng
 
 
 def preload_models(*, rulesets: List[str] | None = None, rules_dir: str | None = None) -> Dict[str, int]:

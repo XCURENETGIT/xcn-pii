@@ -11,6 +11,7 @@ from pathlib import Path
 from fastapi import FastAPI, File, Form, Header, HTTPException, Request, UploadFile
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
+from starlette.concurrency import run_in_threadpool
 
 from app.schemas import (
     DetectPiiFileResponse,
@@ -72,6 +73,12 @@ def _truncate_request_text(text: str, limit: int | None = None) -> str:
     if len(normalized) <= max_chars:
         return normalized
     return normalized[:max_chars] + "..."
+
+
+def _request_text_log_suffix(text: str) -> str:
+    if not _env_bool("PII_LOG_REQUEST_TEXT_ENABLED", False):
+        return " text_logged=false"
+    return f' text_logged=true text="{_truncate_request_text(text)}"'
 
 
 def _format_count_summary(found: dict) -> str:
@@ -160,13 +167,13 @@ def pii_detect(
     t0 = time.perf_counter()
     req_id = hashlib.md5(text.encode("utf-8", errors="ignore")).hexdigest()[:8] if text else "empty"
     logger.info(
-        "[request] api=http path=/pii/detect req=%s chars=%d bytes=%d max_results=%d ruleset=%s text=\"%s\"",
+        "[request] api=http path=/pii/detect req=%s chars=%d bytes=%d max_results=%d ruleset=%s%s",
         req_id,
         len(text),
         len(text.encode("utf-8", errors="ignore")),
         int(req.max_results_per_type or 0),
         x_pii_ruleset or os.getenv("PII_RULESET", "default"),
-        _truncate_request_text(text),
+        _request_text_log_suffix(text),
     )
 
     t_detect = time.perf_counter()
@@ -224,7 +231,7 @@ async def pii_detect_file(
     try:
         if tmp_path is None:
             raise HTTPException(status_code=500, detail="failed to create temp upload file")
-        text = extract_text_from_file(tmp_path)
+        text = await run_in_threadpool(extract_text_from_file, tmp_path)
     except TextExtractError as exc:
         raise HTTPException(status_code=500, detail=str(exc)) from exc
     finally:
@@ -235,18 +242,22 @@ async def pii_detect_file(
 
     req_id = hashlib.md5(text.encode("utf-8", errors="ignore")).hexdigest()[:8] if text else "empty"
     logger.info(
-        "[request] /pii/detect/file\n"
-        "  req=%s filename=%s extracted_chars=%d bytes=%d max_results_per_type=%d ruleset=%s\n"
-        "  text=%s",
+        "[request] api=http path=/pii/detect/file req=%s filename=%s extracted_chars=%d bytes=%d "
+        "max_results_per_type=%d ruleset=%s%s",
         req_id,
         file.filename,
         len(text),
         payload_size,
         max_results_per_type,
         x_pii_ruleset or os.getenv("PII_RULESET", "default"),
-        _truncate_request_text(text),
+        _request_text_log_suffix(text),
     )
-    found, meta = detect_with_meta(text, max_results_per_type=max_results_per_type, ruleset=x_pii_ruleset)
+    found, meta = await run_in_threadpool(
+        detect_with_meta,
+        text,
+        max_results_per_type=max_results_per_type,
+        ruleset=x_pii_ruleset,
+    )
     result = build_detect_response(found, meta)
     return DetectPiiFileResponse(
         **result.model_dump(),

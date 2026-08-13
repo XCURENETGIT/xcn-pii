@@ -79,6 +79,12 @@ def _truncate_request_text(text: str, limit: int | None = None) -> str:
     return normalized[:max_chars] + "..."
 
 
+def _request_text_log_suffix(text: str) -> str:
+    if not _env_bool("PII_LOG_REQUEST_TEXT_ENABLED", False):
+        return " text_logged=false"
+    return f' text_logged=true text="{_truncate_request_text(text)}"'
+
+
 def _build_match_item(pb2: Any, it: dict) -> Any:
     return pb2.MatchItem(
         start=int(it.get("start", 0)),
@@ -138,13 +144,13 @@ def _format_count_summary(found: dict) -> str:
 
 def _log_detect_request(req_id: str, text: str, max_results_per_type: int, ruleset: str | None) -> None:
     logger.info(
-        "[request] api=grpc method=Detect req=%s chars=%d bytes=%d max_results=%d ruleset=%s text=\"%s\"",
+        "[request] api=grpc method=Detect req=%s chars=%d bytes=%d max_results=%d ruleset=%s%s",
         req_id,
         len(text),
         len(text.encode("utf-8", errors="ignore")),
         max_results_per_type,
         ruleset or os.getenv("PII_RULESET", "default"),
-        _truncate_request_text(text),
+        _request_text_log_suffix(text),
     )
 
 

@@ -17,17 +17,20 @@ GRPC_SCALE="${PII_GRPC_SCALE:-3}"
 usage() {
   cat <<'EOF'
 Usage:
-  ./scripts/package_deploy_bundle.sh [--output-dir <dir>] [--name <bundle-name>] [--include-env] [--no-hf-cache] [--hf-volume <name>] [--grpc-scale <n>]
+  ./scripts/package_deploy_bundle.sh [--mode all-cpu|all-gpu] [--output-dir <dir>] [--name <bundle-name>] [--include-env] [--no-hf-cache] [--hf-volume <name>] [--grpc-scale <n>]
 
 Examples:
   docker compose -f docker-compose.http-cpu.yml --profile http up -d --build api
   docker compose -f docker-compose.grpc-cpu.yml --profile grpc up -d --build api-grpc api-grpc-lb
-  ./scripts/package_deploy_bundle.sh --output-dir ./dist
+  docker build -f Dockerfile.gpu --target http-runtime -t xcn-pii/api-http-gpu:$(cat VERSION) .
+  docker build -f Dockerfile.gpu --target grpc-runtime -t xcn-pii/api-grpc-gpu:$(cat VERSION) .
+  ./scripts/package_deploy_bundle.sh --mode all-cpu --output-dir ./dist
+  ./scripts/package_deploy_bundle.sh --mode all-gpu --output-dir ./dist
 
 Behavior:
   - Uses VERSION as the Docker image tag.
   - Packages Docker images already present on this build host.
-  - Creates a single runtime package for HTTP + HTTPS + gRPC CPU services.
+  - Creates a separate CPU or GPU runtime package for HTTP + HTTPS + gRPC services.
   - The target host starts services with: docker compose up -d
   - Includes the HuggingFace model cache Docker volume by default for offline semantic context.
   - Does not build images. Build first with docker compose build/up when VERSION changes.
@@ -175,6 +178,11 @@ write_sanitized_env() {
   {
     echo "PII_IMAGE_REPO=${PII_IMAGE_REPO}"
     echo "PII_IMAGE_TAG=${PII_IMAGE_TAG}"
+    echo "PII_RUNTIME_BACKEND=${RUNTIME_BACKEND}"
+    echo "PII_EMBED_DEVICE=${EMBED_DEVICE}"
+    if [[ "${RUNTIME_BACKEND}" == "gpu" ]]; then
+      echo "COMPOSE_FILE=docker-compose.yml:docker-compose.gpu.yml"
+    fi
     echo "PII_GRPC_SCALE=${GRPC_SCALE}"
     echo "PII_GRPC_MAX_WORKERS=${PII_GRPC_MAX_WORKERS:-7}"
     echo "PII_DETECT_PROCESS_WORKERS=${PII_DETECT_PROCESS_WORKERS:-4}"
@@ -183,11 +191,18 @@ write_sanitized_env() {
     echo "PII_CONTEXT_RULE_FIRST_ENABLED=${PII_CONTEXT_RULE_FIRST_ENABLED:-true}"
     echo "PII_CONTEXT_EMBED_NORMALIZE_DIGITS=${PII_CONTEXT_EMBED_NORMALIZE_DIGITS:-true}"
     echo "PII_MODEL_PRELOAD_ENABLED=true"
+    echo "PII_STAGE_TIMING_ENABLED=false"
+    echo "PII_LOG_REQUEST_TEXT_ENABLED=false"
+    echo "PII_LOG_MAX_FILE_MB=${PII_LOG_MAX_FILE_MB:-100}"
+    echo "PII_LOG_TOTAL_MAX_MB=${PII_LOG_TOTAL_MAX_MB:-10240}"
+    echo "PII_LOG_ROTATE_INTERVAL_SEC=${PII_LOG_ROTATE_INTERVAL_SEC:-30}"
+    echo "PII_DOCKER_LOG_MAX_SIZE=${PII_DOCKER_LOG_MAX_SIZE:-100m}"
+    echo "PII_DOCKER_LOG_MAX_FILE=${PII_DOCKER_LOG_MAX_FILE:-5}"
     if [[ -f "${PROJECT_ROOT}/.env" ]]; then
       while IFS= read -r line || [[ -n "${line}" ]]; do
         case "${line}" in
           ""|\#*) continue ;;
-          PII_IMAGE_REPO=*|PII_IMAGE_TAG=*|PII_GRPC_SCALE=*|PII_GRPC_MAX_WORKERS=*|PII_DETECT_PROCESS_WORKERS=*|PII_DETECT_QUEUE_LIMIT=*|PII_SPLIT_MAX_WORKERS=*|PII_CONTEXT_RULE_FIRST_ENABLED=*|PII_CONTEXT_EMBED_NORMALIZE_DIGITS=*|PII_MODEL_PRELOAD_ENABLED=*) continue ;;
+          PII_IMAGE_REPO=*|PII_IMAGE_TAG=*|PII_RUNTIME_BACKEND=*|PII_EMBED_DEVICE=*|COMPOSE_FILE=*|PII_GRPC_SCALE=*|PII_GRPC_MAX_WORKERS=*|PII_DETECT_PROCESS_WORKERS=*|PII_DETECT_QUEUE_LIMIT=*|PII_SPLIT_MAX_WORKERS=*|PII_CONTEXT_RULE_FIRST_ENABLED=*|PII_CONTEXT_EMBED_NORMALIZE_DIGITS=*|PII_MODEL_PRELOAD_ENABLED=*|PII_STAGE_TIMING_ENABLED=*|PII_LOG_REQUEST_TEXT_ENABLED=*|PII_LOG_MAX_FILE_MB=*|PII_LOG_TOTAL_MAX_MB=*|PII_LOG_ROTATE_INTERVAL_SEC=*|PII_DOCKER_LOG_MAX_SIZE=*|PII_DOCKER_LOG_MAX_FILE=*) continue ;;
           *) echo "${line}" ;;
         esac
       done < "${PROJECT_ROOT}/.env"
@@ -286,6 +301,29 @@ set_env_value() {
   mv "${tmp_file}" ".env"
 }
 
+remove_env_value() {
+  local key="$1"
+  local tmp_file
+  tmp_file="$(mktemp)"
+  grep -vE "^${key}=" ".env" > "${tmp_file}" || true
+  mv "${tmp_file}" ".env"
+}
+
+package_env_value() {
+  local key="$1"
+  grep -E "^${key}=" ".env.package" 2>/dev/null | tail -n 1 | cut -d '=' -f 2- || true
+}
+
+PACKAGE_RUNTIME_BACKEND="$(package_env_value PII_RUNTIME_BACKEND)"
+PACKAGE_EMBED_DEVICE="$(package_env_value PII_EMBED_DEVICE)"
+PACKAGE_COMPOSE_FILE="$(package_env_value COMPOSE_FILE)"
+set_env_value "PII_RUNTIME_BACKEND" "${PACKAGE_RUNTIME_BACKEND:-cpu}"
+set_env_value "PII_EMBED_DEVICE" "${PACKAGE_EMBED_DEVICE:-cpu}"
+if [[ -n "${PACKAGE_COMPOSE_FILE}" ]]; then
+  set_env_value "COMPOSE_FILE" "${PACKAGE_COMPOSE_FILE}"
+else
+  remove_env_value "COMPOSE_FILE"
+fi
 set_env_value "COMPOSE_PROFILES" "${INSTALL_PROFILES}"
 set_env_value "PII_PACKAGE_MODE" "${INSTALL_MODE}"
 
@@ -324,14 +362,16 @@ if [[ -f "model-cache/hf-cache.tar.gz" ]]; then
   docker volume create xcn-pii_hf_cache >/dev/null
   CACHE_RESTORE_REPO="$(grep -E '^PII_IMAGE_REPO=' .env 2>/dev/null | tail -n 1 | cut -d '=' -f 2- || true)"
   CACHE_RESTORE_TAG="$(grep -E '^PII_IMAGE_TAG=' .env 2>/dev/null | tail -n 1 | cut -d '=' -f 2- || true)"
+  CACHE_RUNTIME_BACKEND="$(grep -E '^PII_RUNTIME_BACKEND=' .env 2>/dev/null | tail -n 1 | cut -d '=' -f 2- || true)"
   CACHE_RESTORE_REPO="${CACHE_RESTORE_REPO:-xcn-pii}"
   CACHE_RESTORE_TAG="${CACHE_RESTORE_TAG:-$(tr -d '\r' < VERSION | head -n 1)}"
-  CACHE_RESTORE_IMAGE="${CACHE_RESTORE_REPO}/api-http-cpu:${CACHE_RESTORE_TAG}"
+  CACHE_RUNTIME_BACKEND="${CACHE_RUNTIME_BACKEND:-cpu}"
+  CACHE_RESTORE_IMAGE="${CACHE_RESTORE_REPO}/api-http-${CACHE_RUNTIME_BACKEND}:${CACHE_RESTORE_TAG}"
   if ! docker image inspect "${CACHE_RESTORE_IMAGE}" >/dev/null 2>&1; then
-    CACHE_RESTORE_IMAGE="${CACHE_RESTORE_REPO}/api-grpc-cpu:${CACHE_RESTORE_TAG}"
+    CACHE_RESTORE_IMAGE="${CACHE_RESTORE_REPO}/api-grpc-${CACHE_RUNTIME_BACKEND}:${CACHE_RESTORE_TAG}"
   fi
   if ! docker image inspect "${CACHE_RESTORE_IMAGE}" >/dev/null 2>&1; then
-    echo "cache restore image not found for tag ${CACHE_RESTORE_TAG}: ${CACHE_RESTORE_REPO}/api-http-cpu or ${CACHE_RESTORE_REPO}/api-grpc-cpu" >&2
+    echo "cache restore image not found for backend ${CACHE_RUNTIME_BACKEND}, tag ${CACHE_RESTORE_TAG}" >&2
     exit 1
   fi
   if ! docker run --rm \
@@ -366,8 +406,8 @@ validate_generated_install_script() {
     echo "generated install.sh has a shell syntax error: ${target_path}" >&2
     exit 1
   fi
-  if ! grep -q 'api-http-cpu' "${target_path}" || ! grep -q 'api-grpc-cpu' "${target_path}"; then
-    echo "generated install.sh must support both HTTP and gRPC cache restore images" >&2
+  if ! grep -q 'api-http-${CACHE_RUNTIME_BACKEND}' "${target_path}" || ! grep -q 'api-grpc-${CACHE_RUNTIME_BACKEND}' "${target_path}"; then
+    echo "generated install.sh must support backend-specific HTTP and gRPC cache restore images" >&2
     exit 1
   fi
   if ! grep -q 'docker image inspect "${CACHE_RESTORE_IMAGE}"' "${target_path}"; then
@@ -404,7 +444,8 @@ Notes:
 - `install.sh --mode all|http|https|grpc` selects which services are active by writing `COMPOSE_PROFILES` to `.env`.
 - gRPC modes start `api-grpc` with 3 replicas by default through `PII_GRPC_SCALE=3` and HAProxy LB.
 - Each gRPC replica runs 4 detector processes and accepts 1 waiting request by default.
-- This CPU/PyTorch package supports at most 3 gRPC replicas.
+- CPU and GPU packages are produced separately and identified by `PII_RUNTIME_BACKEND` in `.env.package`.
+- This package supports at most 3 gRPC replicas.
 - Runtime images exclude compiler/CMake packages and Python test/development files.
 - `docker-compose.yml` is the single runtime compose file for HTTP, HTTPS, gRPC, and HAProxy.
 - `install.sh` creates a self-signed HTTPS certificate if `certs/tls.crt` and `certs/tls.key` are missing.
@@ -414,7 +455,15 @@ README_EOF
 }
 
 case "${MODE}" in
-  http-cpu|grpc-cpu|all-cpu)
+  all-cpu)
+    RUNTIME_BACKEND="cpu"
+    EMBED_DEVICE="cpu"
+    RUNTIME_DESCRIPTION="cpu-pytorch"
+    ;;
+  all-gpu)
+    RUNTIME_BACKEND="gpu"
+    EMBED_DEVICE="cuda"
+    RUNTIME_DESCRIPTION="gpu-pytorch-cuda13"
     ;;
   *)
     echo "unsupported mode: ${MODE}" >&2
@@ -422,11 +471,6 @@ case "${MODE}" in
     exit 1
     ;;
 esac
-
-if [[ "${MODE}" != "all-cpu" ]]; then
-  echo "single package mode only supports --mode all-cpu" >&2
-  exit 1
-fi
 
 if [[ "${INCLUDE_HTTPS}" == "true" || "${HTTPS_ONLY}" == "true" ]]; then
   echo "compose-only single package does not support --include-https/--https-only yet" >&2
@@ -452,36 +496,18 @@ APP_VERSION="$(read_app_version)"
 PII_IMAGE_REPO="${PII_IMAGE_REPO:-xcn-pii}"
 PII_IMAGE_TAG="${APP_VERSION}"
 
-HTTP_IMAGE="${PII_IMAGE_REPO}/api-http-cpu:${PII_IMAGE_TAG}"
-GRPC_IMAGE="${PII_IMAGE_REPO}/api-grpc-cpu:${PII_IMAGE_TAG}"
+HTTP_IMAGE="${PII_IMAGE_REPO}/api-http-${RUNTIME_BACKEND}:${PII_IMAGE_TAG}"
+GRPC_IMAGE="${PII_IMAGE_REPO}/api-grpc-${RUNTIME_BACKEND}:${PII_IMAGE_TAG}"
 
 IMAGES=()
-if ! tag_first_existing_image \
-  "${HTTP_IMAGE}" \
-  "xcn-pii/api-http-cpu:${APP_VERSION}" \
-  "xcn-pii/api-http-cpu:latest" \
-  "xcn-pii/api:${APP_VERSION}" \
-  "xcn-pii/api:latest" \
-  "xcn-pii-api:latest" \
-  "xcn-pii-api"; then
-  echo "failed to find HTTP CPU image: ${HTTP_IMAGE}" >&2
-  echo "build first with: docker compose -f docker-compose.http-cpu.yml --profile http build api" >&2
+if ! tag_first_existing_image "${HTTP_IMAGE}" "xcn-pii/api-http-${RUNTIME_BACKEND}:latest"; then
+  echo "failed to find HTTP ${RUNTIME_BACKEND} image: ${HTTP_IMAGE}" >&2
   exit 1
 fi
 IMAGES+=("${HTTP_IMAGE}")
 
-if ! tag_first_existing_image \
-  "${GRPC_IMAGE}" \
-  "xcn-pii/api-grpc-cpu:${APP_VERSION}" \
-  "xcn-pii/api-grpc-cpu:latest" \
-  "xcn-pii/api-grpc:${APP_VERSION}-cpu" \
-  "xcn-pii/api-grpc:${APP_VERSION}" \
-  "xcn-pii/api-grpc:latest-cpu" \
-  "xcn-pii/api-grpc:latest" \
-  "xcn-pii-api-grpc:latest" \
-  "xcn-pii-api-grpc"; then
-  echo "failed to find gRPC CPU image: ${GRPC_IMAGE}" >&2
-  echo "build first with: docker compose -f docker-compose.grpc-cpu.yml --profile grpc build api-grpc" >&2
+if ! tag_first_existing_image "${GRPC_IMAGE}" "xcn-pii/api-grpc-${RUNTIME_BACKEND}:latest"; then
+  echo "failed to find gRPC ${RUNTIME_BACKEND} image: ${GRPC_IMAGE}" >&2
   exit 1
 fi
 IMAGES+=("${GRPC_IMAGE}" "haproxy:3.1-alpine" "nginx:1.27-alpine")
@@ -494,7 +520,7 @@ for image_name in "${IMAGES[@]}"; do
 done
 
 if [[ -z "${BUNDLE_NAME}" ]]; then
-  BUNDLE_NAME="xcn-pii-all-cpu-package-${APP_VERSION}-$(date +%Y%m%d-%H%M%S)"
+  BUNDLE_NAME="xcn-pii-all-${RUNTIME_BACKEND}-package-${APP_VERSION}-$(date +%Y%m%d-%H%M%S)"
 fi
 
 mkdir -p "${OUTPUT_DIR}"
@@ -507,6 +533,9 @@ mkdir -p "${BUNDLE_DIR}/images"
 copy_file "${PROJECT_ROOT}/VERSION" "${BUNDLE_DIR}/VERSION"
 copy_file "${PROJECT_ROOT}/.env.example" "${BUNDLE_DIR}/.env.example"
 copy_file "${PROJECT_ROOT}/docker-compose.package.yml" "${BUNDLE_DIR}/docker-compose.yml"
+if [[ "${RUNTIME_BACKEND}" == "gpu" ]]; then
+  copy_file "${PROJECT_ROOT}/docker-compose.package.gpu.yml" "${BUNDLE_DIR}/docker-compose.gpu.yml"
+fi
 copy_file "${PROJECT_ROOT}/infra/haproxy/grpc-lb.cfg" "${BUNDLE_DIR}/infra/haproxy/grpc-lb.cfg"
 copy_file "${PROJECT_ROOT}/infra/nginx/https.conf.template" "${BUNDLE_DIR}/infra/nginx/https.conf.template"
 
@@ -526,9 +555,6 @@ if [[ "${INCLUDE_HF_CACHE}" == "true" ]]; then
   fi
   mkdir -p "${BUNDLE_DIR}/model-cache"
   CACHE_EXPORT_IMAGE="${HTTP_IMAGE}"
-  if [[ "${MODE}" == "grpc-cpu" ]]; then
-    CACHE_EXPORT_IMAGE="${GRPC_IMAGE}"
-  fi
   echo "Saving HuggingFace model cache from Docker volume ${HF_CACHE_VOLUME}"
   docker run --rm \
     -v "${HF_CACHE_VOLUME}:/hf:ro" \
@@ -549,7 +575,7 @@ docker save -o "${IMAGE_ARCHIVE}" "${IMAGES[@]}"
   echo "app_version=${APP_VERSION}"
   echo "mode=${MODE}"
   echo "runtime_modes=all,http,https,grpc"
-  echo "runtime_backend=cpu-pytorch"
+  echo "runtime_backend=${RUNTIME_DESCRIPTION}"
   echo "runtime_pruning=build-toolchain,python-tests,torch-development-files"
   echo "grpc_scale=${GRPC_SCALE}"
   echo "include_http=true"

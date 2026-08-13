@@ -15,7 +15,7 @@
 - MN, BN 등 오탐 가능 항목에 대한 후처리 필터
 - 문맥 기반 post-filter
 - 긴 텍스트 split 처리
-- long payload fast-path 처리
+- long payload 전체 범위 split 처리
 - 파일 업로드 후 텍스트 추출 기반 탐지
 - 룰셋 hot reload 및 `default`/`strict` 룰셋 전환
 - CPU 전용 실행 모드
@@ -164,21 +164,19 @@ HTTPS는 FastAPI 직접 TLS가 아니라 Nginx reverse proxy에서 TLS를 종료
 | `PII_SPLIT_CHUNK_CHARS` | `50000` | chunk 크기 |
 | `PII_SPLIT_OVERLAP_CHARS` | `2000` | chunk overlap |
 | `PII_SPLIT_MAX_WORKERS` | `1` | parallel worker 수 |
-| `PII_SPLIT_MAX_RESULTS_PER_TYPE` | `200` | chunk별 타입 결과 제한 |
-| `PII_SPLIT_MAX_CHUNKS` | `64` | 최대 chunk 수 |
+| `PII_SPLIT_MAX_CHUNKS` | `64` | chunk 수 상한. 초과 시 chunk 크기를 늘려 전체 입력을 처리 |
 
-### 6.4 Fast-path
+### 6.4 긴 입력 관측 모드
 
-긴 텍스트에서 탐지 범위와 결과 수를 제한하여 성능을 확보한다.
+긴 텍스트 여부를 로그와 성능 측정에 표시한다. 입력 길이에 따라 detector, 문맥 대상 또는 결과
+수를 축소하지 않으므로 짧은 입력과 긴 입력의 탐지 의미는 같다.
 
 관련 환경 변수:
 
 | 변수 | 기본값 | 설명 |
 | --- | --- | --- |
-| `PII_FASTPATH_ENABLED` | `true` | fast-path 사용 여부 |
-| `PII_FASTPATH_TEXT_LEN` | `50000` | fast-path 시작 길이 |
-| `PII_FASTPATH_MAX_RESULTS_PER_TYPE` | `200` | 타입별 결과 제한 |
-| `PII_FASTPATH_TARGET_KEYS` | `SN,FN,SSN,DN,PN,MN,BRN,AN,EML,CN,VN_CCCD,VN_MN,VN_PN,VN_TIN,VN_SI` | fast-path 대상 타입 |
+| `PII_FASTPATH_ENABLED` | `true` | 긴 입력 관측 로그 사용 여부(호환 변수) |
+| `PII_FASTPATH_TEXT_LEN` | `50000` | 긴 입력으로 표시할 길이 |
 
 ## 7. 룰셋
 
@@ -376,7 +374,7 @@ SSN -> sn -> dn -> pn -> EML -> cn -> mn -> bn -> post_mn -> post_bn
 - Hyperscan combined DB로 다수 타입을 공유 scan 가능
 - gRPC worker 수 조정 가능
 - long payload split 처리
-- fast-path로 긴 텍스트 대상 detector 제한
+- chunk 수 상한 내에서 전체 입력 처리
 - 문맥 embedding preload 지원
 - gRPC benchmark 도구 제공
 

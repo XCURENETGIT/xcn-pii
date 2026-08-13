@@ -32,7 +32,7 @@
 - 전화번호/계좌번호 후처리
 - 문맥 기반 post-filter
 - 긴 텍스트 split 처리
-- long payload fast-path 처리
+- long payload 전체 범위 split 처리
 - CPU 전용 운영 모드
 - gRPC direct/LB 운영 모드
 - 성능 측정 스크립트 제공
@@ -361,16 +361,15 @@ HTTP에서는 `X-PII-RULESET` header를 사용한다. gRPC에서는 `DetectReque
 
 chunk 결과는 원문 offset 기준으로 보정되며, `(start, end, matchString)` 기준으로 dedup 처리된다.
 
-### 8.3 Fast-path
+### 8.3 긴 입력 관측 모드
 
-긴 텍스트에서는 탐지 대상 타입과 결과 수를 제한하여 처리 시간을 제어한다.
+긴 입력에서도 짧은 입력과 같은 detector 및 문맥 정책을 적용한다. `FASTPATH` 호환 변수는
+로그와 성능 측정에서 긴 입력 여부를 표시할 뿐 탐지 타입이나 결과 수를 줄이지 않는다.
 
 | 변수 | 기본값 |
 | --- | --- |
 | `PII_FASTPATH_ENABLED` | `true` |
 | `PII_FASTPATH_TEXT_LEN` | `50000` |
-| `PII_FASTPATH_MAX_RESULTS_PER_TYPE` | `200` |
-| `PII_FASTPATH_TARGET_KEYS` | `SN,FN,SSN,DN,PN,MN,BRN,AN,EML,CN,VN_CCCD,VN_MN,VN_PN,VN_TIN,VN_SI` |
 
 ## 9. 파일 탐지 설계
 
@@ -538,12 +537,12 @@ Hyperscan을 우선 사용하고, 지원하지 않는 패턴은 Python regex로 
 
 ### 13.2 긴 텍스트 성능
 
-긴 텍스트는 split과 fast-path를 조합해 처리한다.
+긴 텍스트는 split으로 처리하되 전체 입력과 전체 detector 범위를 유지한다.
 
 - split으로 chunk 단위 처리
 - overlap으로 경계 누락 완화
-- fast-path로 대상 detector 제한
-- 타입별 결과 수 제한
+- 설정된 chunk 수를 넘으면 chunk 크기를 자동 확장하여 원문 끝까지 처리
+- 요청의 타입별 결과 수 제한을 최종 병합 결과에 동일하게 적용
 
 ### 13.3 gRPC 성능
 
@@ -552,7 +551,10 @@ process `4`, 대기 큐 `1`, replica `3`이며 총 12건을 동시에 탐지하�
 대기시킨다. 큐 포화 요청은 gRPC `RESOURCE_EXHAUSTED`로 즉시 거절한다.
 HAProxy는 `leastconn`, HTTP/2 backend connection reuse, Docker DNS
 `server-template`을 사용해 단일 장기 gRPC 채널의 RPC도 세 backend로 분산한다.
-`scripts/grpc_benchmark.py`로 throughput, p50, p95, p99 latency를 측정한다.
+`scripts/grpc_benchmark.py`로 gRPC throughput, p50, p95, p99 latency를 측정한다.
+`scripts/protocol_benchmark.py`는 동일 입력과 영속 연결로 HTTP, 단일 gRPC, LB gRPC를 비교하고
+응답의 끝부분 BRN 탐지 결과까지 검증한다. 단일 요청 latency와 동시 처리 throughput은 별도로
+판단한다.
 
 ## 14. 보안 설계
 
@@ -580,7 +582,7 @@ TLS private key가 저장소에 포함되지 않도록 `certs/`는 `.gitignore`�
 - 공개 API 자체 인증은 제공하지 않는다.
 - gRPC TLS는 현재 설계 범위에 포함되지 않는다.
 - 문맥 필터는 embedding 모델 성능과 threshold 설정에 영향을 받는다.
-- 매우 긴 문서의 경우 split/fast-path 설정에 따라 일부 타입의 탐지 범위가 제한될 수 있다.
+- 매우 긴 문서는 chunk 크기가 커질 수 있어 입력 길이와 후보 수에 따라 지연시간이 증가할 수 있다.
 - 파일 탐지는 `xutf_8` 추출 성공 여부에 의존한다.
 - semantic embedding은 CPU에서 동작하므로 입력 길이와 후보 수에 따라 latency가 증가할 수 있다.
 
@@ -608,7 +610,7 @@ TLS private key가 저장소에 포함되지 않도록 `certs/`는 `.gitignore`�
 | `PII_HS_COMBINED_ENABLED` | `true` | combined Hyperscan |
 | `PII_CONTEXT_EMBED_MAX_CHARS` | `256` | context embedding 최대 길이 |
 | `PII_SPLIT_ENABLED` | `true` | 긴 텍스트 split |
-| `PII_FASTPATH_ENABLED` | `true` | 긴 텍스트 fast-path |
+| `PII_FASTPATH_ENABLED` | `true` | 긴 입력 관측 로그(호환 변수) |
 | `PII_GRPC_MAX_WORKERS` | `7` | gRPC handler thread 수 |
 | `PII_DETECT_PROCESS_WORKERS` | `4` | 인스턴스별 실제 탐지 process 수 |
 | `PII_DETECT_QUEUE_LIMIT` | `1` | 인스턴스별 탐지 대기 한도 (`1` 또는 `2`) |

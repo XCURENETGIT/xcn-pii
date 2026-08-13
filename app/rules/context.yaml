@@ -60,8 +60,22 @@ context:
     name_pii_row_repeat_unique_min: 1
     name_pii_row_repeat_max_distance_chars: 24
     name_pii_row_repeat_require_consecutive: true
+    # Explicit example/test markers are deterministic exclusions. They are
+    # evaluated before label, repeat, name-row and semantic acceptance.
+    hard_negative_phrases:
+      - "예시"
+      - "샘플"
+      - "테스트"
+      - "더미"
+      - "가상번호"
+    # Bind negative markers to the candidate instead of rejecting every value
+    # in a surrounding sentence/table block.
+    hard_negative_scope: near
+    hard_negative_window_chars: 48
     digit_min_ratio: 0.6
-    digit_weight: 0.2
+    # Numeric shape is already validated by each detector. Do not count it a
+    # second time as context evidence.
+    digit_weight: 0.0
   # Per-type overrides for thresholds/phrases/hybrid behavior.
   per_type:
     SN:
@@ -120,7 +134,23 @@ context:
         - "비식별"
         - "익명화"
       hybrid:
+        # A checksum-valid RRN next to a strictly validated Korean name token
+        # is useful even for a single row. Generic table nouns are excluded in
+        # context_helpers and explicit management-number context wins first.
         name_pii_row_repeat_min_count: 1
+        hard_negative_phrases:
+          - "문서관리번호"
+          - "문서 관리 번호"
+          - "내부 문서관리번호"
+          - "내부 문서 관리 번호"
+          - "내부 관리번호"
+          - "관리번호"
+          - "문서번호"
+          - "문서 번호"
+          - "접수번호"
+          - "접수 번호"
+          - "처리번호"
+          - "처리 번호"
         label_patterns:
           - "(?i)\\bSN\\b|\\bRRN\\b|resident\\s+(?:registration\\s+)?number|korean\\s+resident\\s+registration\\s+number|national\\s+identification\\s+number|주민\\s*등록\\s*(?:증\\s*)?번호|주민\\s*등록|주민\\s*번호|주번"
     FN:
@@ -184,6 +214,19 @@ context:
         - "sample ssn"
         - "test ssn"
       hybrid:
+        hard_negative_phrases:
+          - "물류 코드"
+          - "물류코드"
+          - "상품 코드"
+          - "상품코드"
+          - "제품 코드"
+          - "제품코드"
+          - "주문 번호"
+          - "주문번호"
+          - "관리 번호"
+          - "관리번호"
+          - "sample ssn"
+          - "test ssn"
         label_patterns:
           - "(?i)social\\s+security(?:\\s*(?:number|no\\.?|num|#))?|\\bSSN\\b|\\bS\\.S\\.N\\.?\\b|\\bSSA\\s+number\\b|\\btaxpayer\\s+identification\\s+number\\b|\\btax\\s+identification\\s+number\\b|\\btax\\s*id\\b|\\bTIN\\b|사회\\s*보장\\s*번호|미국\\s*사회\\s*보장\\s*번호|소셜\\s*시큐리티"
     DN:
@@ -240,7 +283,7 @@ context:
         accept_threshold: 0.30
         label_window: 80
         label_weight: 0.45
-        digit_weight: 0.1
+        digit_weight: 0.0
         label_patterns:
           - "(?i)여권\\s*(?:번호|no\\.?|#)?|passport\\s*(?:number|no\\.?|#|id)?|\\bPN\\b"
     MN:
@@ -289,7 +332,7 @@ context:
         accept_threshold: 0.32
         label_window: 48
         label_weight: 0.45
-        digit_weight: 0.1
+        digit_weight: 0.0
         label_patterns:
           - "(?i)전화\\s*번호|휴대\\s*(?:전화|폰)\\s*(?:번호)?|핸드폰\\s*(?:번호)?|문의\\s*전화|연락\\s*(?:처|번호|전화)|대표\\s*번호|사무실\\s*전화|모바일|전화|팩스|tel(?:ephone)?|phone\\s*(?:number)?|mobile\\s*(?:number)?|cell\\s*phone|cellphone|contact\\s*(?:number|phone)|fax|\\bMN\\b"
     BRN:
@@ -335,11 +378,16 @@ context:
       hybrid:
         enabled: true
         accept_threshold: 0.25
-        label_window: 18
+        # Covers full English labels such as "business registration number"
+        # while remaining bound to the same nearby candidate.
+        label_window: 48
         label_weight: 0.55
-        digit_weight: 0.1
+        digit_weight: 0.0
+        hard_negative_phrases:
+          - "sample brn"
+          - "test brn"
         label_patterns:
-          - "(?i)사업자\\s*등록\\s*(?:증\\s*)?(?:번호)?|사업자\\s*번호|주식\\s*회사|유한\\s*회사|합명\\s*회사|합자\\s*회사|회사\\s*명|법인\\s*명|법인|업체\\s*명|업체|거래처|매입처|매출처|공급\\s*자|공급\\s*받는\\s*자|전자?\\s*세금\\s*계산서|business\\s+registration\\s*(?:number|no\\.?|num)?|tax\\s+invoice|vendor|supplier|\\bBRN\\b"
+          - "(?i)사업자(?:\\s*등록\\s*(?:증\\s*)?(?:번호)?|\\s*번호)?|주식\\s*회사|유한\\s*회사|합명\\s*회사|합자\\s*회사|회사\\s*명|법인\\s*명|법인|업체\\s*명|업체|거래처|매입처|매출처|공급\\s*자|공급\\s*받는\\s*자|전자?\\s*세금\\s*계산서|business\\s+registration\\s*(?:number|no\\.?|num)?|tax\\s+invoice|vendor|supplier|\\bBRN\\b"
     BN:
       sim_threshold: 0.09
       indicator_phrases:
@@ -359,7 +407,6 @@ context:
         - "환불 계좌"
         - "거래계좌"
         - "거래 계좌"
-        - "카드번호"
         - "bank"
         - "bank account"
         - "bank account number"
@@ -372,7 +419,7 @@ context:
         - "bn"
       hybrid:
         label_patterns:
-          - "(?i)계좌\\s*(?:번호|no\\.?|#)?|은행(?:명|\\s*계좌)?|입금\\s*계좌|출금\\s*계좌|환불\\s*계좌|거래\\s*계좌|카드번호|bank\\s*(?:account\\s*(?:number)?)?|account\\s*(?:number)?|acct\\s*(?:no\\.?)?|deposit\\s+account|refund\\s+account|\\bBN\\b"
+          - "(?i)계좌\\s*(?:번호|no\\.?|#)?|은행(?:명|\\s*계좌)?|입금\\s*계좌|출금\\s*계좌|환불\\s*계좌|거래\\s*계좌|bank\\s*(?:account\\s*(?:number)?)?|account\\s*(?:number)?|acct\\s*(?:no\\.?)?|deposit\\s+account|refund\\s+account|\\bBN\\b"
     CN:
       sim_threshold: 0.10
       window_sentences: 1
@@ -411,7 +458,10 @@ context:
         accept_threshold: 0.34
         label_window: 56
         label_weight: 0.5
-        digit_weight: 0.1
+        digit_weight: 0.0
+        hard_negative_phrases:
+          - "sample card"
+          - "test card"
         label_patterns:
           - "(?i)카드\\s*(?:번호|no\\.?|#)?|신용\\s*카드\\s*(?:번호)?|체크\\s*카드\\s*(?:번호)?|결제\\s*카드|법인\\s*카드|credit\\s+card\\s*(?:number)?|debit\\s+card\\s*(?:number)?|card\\s*(?:number|no\\.?|#)|cc\\s+number|\\bCN\\b"
     CPN:
@@ -461,7 +511,7 @@ context:
         accept_threshold: 0.25
         label_window: 48
         label_weight: 0.55
-        digit_weight: 0.1
+        digit_weight: 0.0
         label_patterns:
           - "(?i)법인\\s*(?:등록|등기)\\s*번호|법인\\s*번호|등기\\s*등록\\s*번호|회사\\s*등록\\s*번호|상업\\s*등기\\s*번호|법인\\s*(?:등기부|인감증명서)|등기부\\s*등본|corporate\\s+(?:reg(?:istration)?|registry)\\s*(?:number|no\\.?|num)?|corporation\\s+(?:reg(?:istration)?|registry)\\s*(?:number|no\\.?|num)?|company\\s+(?:reg(?:istration)?|registry)\\s*(?:number|no\\.?|num)?|registration\\s+certificate|registry\\s*(?:number|no\\.?|num)?|\\bCPN\\b"
     CRN:
@@ -511,7 +561,7 @@ context:
         accept_threshold: 0.25
         label_window: 48
         label_weight: 0.55
-        digit_weight: 0.1
+        digit_weight: 0.0
         label_patterns:
           - "(?i)자동차\\s*등록\\s*(?:증|번호)|차량\\s*(?:등록\\s*)?(?:증|번호)|자동차\\s*번호판|차량\\s*번호판|등록\\s*번호판|번호판|차번|차량\\s*식별|운행\\s*차량|licen[cs]e\\s+plate|plate\\s*(?:number|no\\.?)?|vehicle\\s*(?:number|no\\.?|reg(?:istration)?\\s*(?:number|no\\.?|num)?)|car\\s+reg(?:istration)?\\s*(?:number|no\\.?|num)?|registration\\s+plate|\\bCRN\\b"
     IMEI:
@@ -554,7 +604,7 @@ context:
         accept_threshold: 0.25
         label_window: 48
         label_weight: 0.55
-        digit_weight: 0.1
+        digit_weight: 0.0
         label_patterns:
           - "(?i)\\bIMEI\\b|(?:단말기?|휴대폰|기기|장비|디바이스|이동\\s*단말)\\s*(?:식별|고유|일련)\\s*번호|모바일\\s*장비\\s*식별\\s*번호|device\\s*(?:id|identifier|imei)|equipment\\s+identity|mobile\\s+equipment\\s*(?:id|identity)|international\\s+mobile\\s+equipment\\s+identity"
     MCN:

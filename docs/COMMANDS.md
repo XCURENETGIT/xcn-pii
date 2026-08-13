@@ -29,7 +29,7 @@ cp .env.example .env
 | 변수 | 기본값 | 설명 |
 | --- | --- | --- |
 | `PII_IMAGE_REPO` | `xcn-pii` | Docker 이미지 repository |
-| `PII_IMAGE_TAG` | `1.0.0` | Docker 이미지 tag |
+| `PII_IMAGE_TAG` | `1.0.8` | Docker 이미지 tag |
 | `PII_HTTPS_PORT` | `28443` | HTTPS proxy 외부 포트 |
 | `PII_HTTPS_SERVER_NAME` | `_` | TLS server_name |
 | `PII_RULESET` | `default` | 기본 룰셋 |
@@ -41,6 +41,12 @@ cp .env.example .env
 | `PII_EMBED_DEVICE` | `cpu` | 임베딩 장치. CPU 전용으로 고정 |
 | `PII_MODEL_PRELOAD_ENABLED` | `true` | 기동 시 모델 preload |
 | `PII_LOG_LEVEL` | `INFO` | 로그 레벨 |
+| `PII_STAGE_TIMING_ENABLED` | `false` | 단계별 상세 성능 로그 사용 여부 |
+| `PII_LOG_REQUEST_TEXT_ENABLED` | `false` | 요청 원문 로그 사용 여부. 운영 기본값은 비활성화 |
+| `PII_LOG_MAX_FILE_MB` | `100` | 단일 애플리케이션 로그 파일 회전 크기 |
+| `PII_LOG_TOTAL_MAX_MB` | `10240` | 단일 로그 관리 프로세스가 관리하는 전체 로그 상한 |
+| `PII_DOCKER_LOG_MAX_SIZE` | `100m` | 컨테이너 `json-file` 개별 파일 상한 |
+| `PII_DOCKER_LOG_MAX_FILE` | `5` | 컨테이너별 `json-file` 보관 개수 |
 
 ## Docker Compose
 
@@ -615,6 +621,23 @@ strict 룰셋 benchmark:
 py -3 ./scripts/grpc_benchmark.py --target 127.0.0.1:50055 --ruleset strict --requests 200
 ```
 
+동일 payload와 영속 연결을 사용한 HTTP/gRPC 비교 benchmark:
+
+```bash
+python scripts/protocol_benchmark.py \
+  --http-target http://xcn-pii-api:8000/pii/detect \
+  --grpc-direct-target 127.0.0.1:50051 \
+  --grpc-lb-target xcn-pii-grpc-lb:50051 \
+  --requests 100 \
+  --warmup-requests 20 \
+  --concurrency 4
+```
+
+기본 입력은 끝부분에 유효한 BRN이 있는 52,042자 문자열이며, 성공 응답뿐 아니라 `BRN_CNT=1`도
+검증한다. 단일 gRPC 인스턴스의 기본 수용량은 탐지 worker 4개와 대기 1개이므로 직접 endpoint에
+5를 초과하는 동시성을 주면 과부하 보호에 의해 일부 요청이 거절될 수 있다. 높은 동시성 비교는
+3 replica LB endpoint를 기준으로 수행한다.
+
 ## Context Threshold Evaluation
 
 문맥 threshold 평가:
@@ -623,19 +646,33 @@ py -3 ./scripts/grpc_benchmark.py --target 127.0.0.1:50055 --ruleset strict --re
 python tools/eval_context_thresholds.py \
   --data tools/context_eval.json \
   --url http://localhost:8005/pii/detect \
-  --min -0.2 \
-  --max 0.8 \
+  --min 0.0 \
+  --max 1.0 \
   --step 0.05 \
   --out-rows tools/context_eval_rows.csv \
-  --out-summary tools/context_eval_summary.csv \
+  --out-summary tools/context_eval_summary.csv
+```
+
+HTTP 서비스를 사용하지 않는 로컬 평가:
+
+```bash
+python tools/eval_context_thresholds.py --local
+```
+
+기본 `tools/context_eval.json`은 17개 문맥 대상 유형별로 양성 4건·음성 4건, 총 136건의
+기본·경계·교란 사례를 확인하는 합성 평가셋이다. 운영 threshold를 갱신하는 근거로 사용하지
+않는다. 운영 설정 갱신은 비식별
+대표 데이터셋의 `dataset_kind`를 `representative`로 지정하고 결과를 검토한 뒤에만 명시한다.
+
+```bash
+python tools/eval_context_thresholds.py \
+  --data tools/context_eval_representative.json \
+  --url http://localhost:8005/pii/detect \
   --update-context app/rules/context.yaml
 ```
 
-context 설정 파일을 갱신하지 않고 평가만 수행:
-
-```bash
-python tools/eval_context_thresholds.py --update-context ""
-```
+임베딩 모델 로드에 실패해 keyword fallback으로만 평가된 경우 도구는 embedding score가
+없다는 경고를 출력하며 `--update-context`를 차단한다.
 
 ## Ports
 

@@ -5,10 +5,13 @@ enabled: true
 
 # Candidate regex list used by the scanning stage.
 patterns:
-  - name: rrn_hyphen_ascii
-    expr: '\d{6}-\d{7}'
-    verify_regex: '(?<!\d)\d{6}-\d{7}(?!\d)'
-    regex: '(?<!\d)\d{6}-\d{7}(?!\d)'
+  - name: rrn_delimited_ascii
+    # Supports the canonical hyphen, spaces around the hyphen, and a horizontal
+    # whitespace separator: 890512-2054508 / 890512 - 2054508 / 890512 2054508.
+    # Newlines are intentionally excluded so values on separate rows are not joined.
+    expr: '\d{6}(?:[ \t]*-[ \t]*|[ \t]+)\d{7}'
+    verify_regex: '(?<!\d)\d{6}(?:[ \t]*-[ \t]*|[ \t]+)\d{7}(?!\d)'
+    regex: '(?<!\d)\d{6}(?:[ \t]*-[ \t]*|[ \t]+)\d{7}(?!\d)'
     flags:
       utf8: false
       ucp: false

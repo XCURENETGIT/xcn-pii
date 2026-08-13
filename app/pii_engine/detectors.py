@@ -2,6 +2,33 @@ from __future__ import annotations
 
 from .common import *
 
+
+def _typed_structure_valid(out_key: str, text: str, item: dict) -> bool:
+    """Apply the same type-specific validation regardless of scan backend."""
+    value = str(item.get("matchString", ""))
+    if out_key == "EML":
+        return email_structure_valid(value)
+    if out_key == "SSN":
+        return ssn_structure_valid(value) and not ssn_candidate_in_non_pii_url(
+            text,
+            int(item.get("start", 0)),
+            int(item.get("end", 0)),
+        )
+    if out_key == "CN":
+        return card_structure_valid(value)
+    if out_key == "CPN":
+        return cpn_structure_valid(value)
+    if out_key == "CRN":
+        return crn_structure_valid(value)
+    if out_key == "IMEI":
+        return imei_structure_valid(value)
+    if out_key == "MCN":
+        return mac_structure_valid(value)
+    if out_key == "IP":
+        return ip_structure_valid(value)
+    return True
+
+
 class DNDetector(Detector):
     def __init__(self, hs_db: HyperscanDB, enabled: bool = True):
         self.hs_db = hs_db
@@ -162,22 +189,15 @@ class HSRegexDetector(Detector):
                     continue
             if (e - s) > self.max_match_len:
                 continue
-            out.append({"start": s, "end": e, "matchString": ctx.text[s:e]})
+            candidate = {"start": s, "end": e, "matchString": ctx.text[s:e]}
+            if not _typed_structure_valid(self.out_key, ctx.text, candidate):
+                continue
+            out.append(candidate)
             if len(out) >= ctx.max_results:
                 break
         if self.supplement_regexes and len(out) < ctx.max_results:
             out.extend(self._scan_supplement(ctx))
-        if self.out_key == "SSN":
-            out = [
-                it
-                for it in out
-                if ssn_structure_valid(str(it.get("matchString", "")))
-                and not ssn_candidate_in_non_pii_url(
-                    ctx.text,
-                    int(it.get("start", 0)),
-                    int(it.get("end", 0)),
-                )
-            ]
+        out = [it for it in out if _typed_structure_valid(self.out_key, ctx.text, it)]
         verify_ms = _timing_ms(t0_verify)
         t0_finalize = _timing_now()
         existing = ctx.get(self.out_key) or []
@@ -261,31 +281,8 @@ class RegexDetector(Detector):
                     continue
                 cleaned.append({"start": s, "end": e, "matchString": ctx.text[s:e]})
             items = cleaned
-        elif self.out_key == "EML":
-            items = [it for it in items if email_structure_valid(it.get("matchString", ""))]
-        elif self.out_key == "SSN":
-            items = [
-                it
-                for it in items
-                if ssn_structure_valid(it.get("matchString", ""))
-                and not ssn_candidate_in_non_pii_url(
-                    ctx.text,
-                    int(it.get("start", 0)),
-                    int(it.get("end", 0)),
-                )
-            ]
-        elif self.out_key == "CN":
-            items = [it for it in items if card_structure_valid(it.get("matchString", ""))]
-        elif self.out_key == "CPN":
-            items = [it for it in items if cpn_structure_valid(it.get("matchString", ""))]
-        elif self.out_key == "CRN":
-            items = [it for it in items if crn_structure_valid(it.get("matchString", ""))]
-        elif self.out_key == "IMEI":
-            items = [it for it in items if imei_structure_valid(it.get("matchString", ""))]
-        elif self.out_key == "MCN":
-            items = [it for it in items if mac_structure_valid(it.get("matchString", ""))]
-        elif self.out_key == "IP":
-            items = [it for it in items if ip_structure_valid(it.get("matchString", ""))]
+        else:
+            items = [it for it in items if _typed_structure_valid(self.out_key, ctx.text, it)]
         post_ms = _timing_ms(t0_post)
         t0_finalize = _timing_now()
         existing = ctx.get(self.out_key) or []

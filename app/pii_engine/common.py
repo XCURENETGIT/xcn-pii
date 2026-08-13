@@ -10,6 +10,7 @@ from pathlib import Path
 import re
 from dataclasses import dataclass, field
 import hashlib
+from bisect import bisect_left
 from typing import Any, Dict, List, Pattern, Tuple
 
 import hyperscan
@@ -429,14 +430,22 @@ def _resolve_cross_type_overlaps(out: Dict[str, List[dict]]) -> None:
             )
         ]
 
+    # Candidates are considered in the same quality order as before. Keep the
+    # accepted (non-overlapping) intervals ordered by start so each overlap
+    # check only needs the adjacent intervals instead of scanning all results.
     selected: List[Tuple[int, int, str, dict]] = []
+    selected_starts: List[int] = []
     kept_by_key: Dict[str, List[dict]] = {key: [] for key in _CROSS_TYPE_OVERLAP_KEYS}
     for _, key, it in sorted(candidates, key=lambda x: x[0], reverse=True):
         s = it["start"]
         e = it["end"]
-        if any(_overlaps(s, e, ss, ee) for ss, ee, _, _ in selected):
+        insert_at = bisect_left(selected_starts, s)
+        overlaps_left = insert_at > 0 and selected[insert_at - 1][1] > s
+        overlaps_right = insert_at < len(selected) and selected[insert_at][0] < e
+        if overlaps_left or overlaps_right:
             continue
-        selected.append((s, e, key, it))
+        selected.insert(insert_at, (s, e, key, it))
+        selected_starts.insert(insert_at, s)
         kept_by_key.setdefault(key, []).append(it)
 
     for key in _CROSS_TYPE_OVERLAP_KEYS:
@@ -880,6 +889,7 @@ class DetectContext:
     max_results: int = 500
     out: Dict[str, List[dict]] = field(default_factory=dict)
     request_id: str = ""
+    include_context_debug: bool = False
     extra: Dict[str, Any] = field(default_factory=dict)
 
     def get(self, key: str) -> List[dict]:

@@ -1,3 +1,5 @@
+ARG GPU_PYTHON_SOURCE=xcn-pii/api:1.0.0
+
 FROM python:3.11-slim AS app-builder
 
 WORKDIR /app
@@ -35,31 +37,32 @@ RUN python setup.py build_ext --inplace \
  && find /app/app -type d -name '__pycache__' -prune -exec rm -rf {} + \
  && rm -rf /app/build
 
-FROM python:3.11-slim AS cpu-runtime-common
+# The 52 build server keeps this CUDA 13/PyTorch 2.11 image as the validated
+# GPU dependency source. Copying its Python runtime avoids downloading several
+# gigabytes of CUDA wheels for every application-only release.
+FROM ${GPU_PYTHON_SOURCE} AS gpu-python-source
+
+FROM python:3.11-slim AS gpu-runtime-common
 
 ARG INSTALL_SEMANTIC=true
 
 WORKDIR /app
 
-COPY requirements-base.txt requirements-semantic.txt ./
+COPY --from=gpu-python-source /usr/local /usr/local
+COPY requirements-base.txt requirements-semantic-gpu.txt ./
 
 RUN apt-get update \
  && apt-get install -y --no-install-recommends ca-certificates \
  && rm -rf /var/lib/apt/lists/* \
  && pip install --no-cache-dir -r requirements-base.txt \
- && if [ "$INSTALL_SEMANTIC" = "true" ]; then pip install --no-cache-dir -r requirements-semantic.txt; fi \
- && rm -rf \
-      /usr/local/lib/python3.11/site-packages/torch/test \
-      /usr/local/lib/python3.11/site-packages/torch/include \
-      /usr/local/lib/python3.11/site-packages/torch/share/cmake \
- && for package_dir in numpy scipy sklearn sympy; do \
-      if [ -d "/usr/local/lib/python3.11/site-packages/${package_dir}" ]; then \
-        find "/usr/local/lib/python3.11/site-packages/${package_dir}" -depth -type d \
-          \( -name test -o -name tests \) -exec rm -rf '{}' +; \
-      fi; \
-    done
+ && if [ "$INSTALL_SEMANTIC" = "true" ]; then pip install --no-index -r requirements-semantic-gpu.txt; fi \
+ && python -c 'import torch; assert torch.__version__.startswith("2.11."); assert torch.version.cuda == "13.0"'
 
-FROM cpu-runtime-common AS http-runtime
+ENV NVIDIA_VISIBLE_DEVICES=all
+ENV NVIDIA_DRIVER_CAPABILITIES=compute,utility
+ENV PII_EMBED_DEVICE=cuda
+
+FROM gpu-runtime-common AS http-runtime
 
 COPY requirements-http.txt ./
 RUN pip install --no-cache-dir -r requirements-http.txt
@@ -73,7 +76,7 @@ COPY --from=app-builder /app/app /app/app
 EXPOSE 8000
 CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
 
-FROM cpu-runtime-common AS grpc-runtime
+FROM gpu-runtime-common AS grpc-runtime
 
 COPY requirements-grpc.txt ./
 RUN pip install --no-cache-dir -r requirements-grpc.txt

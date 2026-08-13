@@ -53,6 +53,17 @@ def test_sn_name_row_repeat_still_accepts_repeated_name_rows():
     assert all(x.get("context_accept_by") == "name_pii_row_repeat" for x in found.get("SN", []))
 
 
+def test_sn_label_accepts_space_separated_rrn():
+    text = "주번 890512 2054508"
+
+    found, _meta = detect_with_meta(text, max_results_per_type=20, ruleset="default")
+
+    assert [x["matchString"] for x in found.get("SN", [])] == ["890512 2054508"]
+    assert found["SN"][0].get("checksum_status") == "checksum_pass"
+    assert found["SN"][0].get("context_accept_by") == "label"
+    assert found.get("BN", []) == []
+
+
 def test_sn_name_row_accepts_single_reversed_number_name_row():
     text = "890512-2054508 홍길동"
 

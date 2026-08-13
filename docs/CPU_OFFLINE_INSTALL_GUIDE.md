@@ -236,6 +236,13 @@ PII_MODEL_PRELOAD_ENABLED=true
 PII_EMBED_DEVICE=cpu
 PII_HF_OFFLINE=true
 PII_LOG_LEVEL=INFO
+PII_STAGE_TIMING_ENABLED=false
+PII_LOG_REQUEST_TEXT_ENABLED=false
+PII_LOG_MAX_FILE_MB=100
+PII_LOG_TOTAL_MAX_MB=10240
+PII_LOG_ROTATE_INTERVAL_SEC=30
+PII_DOCKER_LOG_MAX_SIZE=100m
+PII_DOCKER_LOG_MAX_FILE=5
 ```
 
 `PII_GRPC_SCALE` 값을 변경하면 다음 `docker compose up -d` 시 `api-grpc` replica 수가 해당 값으로 적용됩니다.
@@ -289,7 +296,10 @@ certs/
 docker volume inspect xcn-pii_hf_cache
 ```
 
-로그 파일은 기본적으로 컨테이너 내부 `/logs`와 호스트 `./logs`에 기록됩니다.
+로그 파일은 기본적으로 컨테이너 내부 `/logs`와 호스트 `./logs`에 기록됩니다. 운영 패키지는 단일
+`xcn-pii-logrotate` 컨테이너가 로그를 관리하며, 기본 100MB 단위로 회전·gzip 압축하고 관리 대상
+로그 합계가 10GB를 넘으면 가장 오래된 관리 아카이브부터 제거합니다. 기존 버전에서 생성된
+`*.log.YYYY-MM-DD` 및 워커 PID 로그는 자동 삭제하지 않습니다.
 
 ## 10. HTTPS 운영
 

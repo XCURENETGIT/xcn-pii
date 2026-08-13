@@ -24,6 +24,7 @@ import os
 import time
 import logging
 import hashlib
+import math
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Dict, List, Tuple
 
@@ -86,6 +87,28 @@ def _split_text_ranges(text: str, chunk_chars: int, overlap_chars: int) -> List[
         if next_pos <= pos:
             next_pos = end
         pos = next_pos
+    return ranges
+
+
+def _split_text_ranges_bounded(
+    text: str,
+    chunk_chars: int,
+    overlap_chars: int,
+    max_chunks: int,
+) -> List[Tuple[int, int]]:
+    """Cover the full input while keeping the number of chunks bounded.
+
+    Older behavior sliced the range list and silently left the input tail
+    unscanned. This function grows the chunk size instead.
+    """
+    limit = max(1, int(max_chunks))
+    effective_chunk = max(1, int(chunk_chars))
+    ranges = _split_text_ranges(text, effective_chunk, overlap_chars)
+    while len(ranges) > limit:
+        minimum_cover = int(math.ceil(len(text or "") / float(limit))) + max(0, int(overlap_chars))
+        next_chunk = max(minimum_cover, effective_chunk + 1, int(math.ceil(effective_chunk * 1.5)))
+        effective_chunk = next_chunk
+        ranges = _split_text_ranges(text, effective_chunk, overlap_chars)
     return ranges
 
 
@@ -152,7 +175,6 @@ def detect_with_meta(text: str, max_results_per_type: int = 500, *, ruleset: str
     - PII_SPLIT_CHUNK_CHARS (default: 50000)
     - PII_SPLIT_OVERLAP_CHARS (default: 2000)
     - PII_SPLIT_MAX_WORKERS (default: 1)
-    - PII_SPLIT_MAX_RESULTS_PER_TYPE (default: 200)
     - PII_SPLIT_MAX_CHUNKS (default: 64)
     """
     src = text or ""
@@ -169,7 +191,6 @@ def detect_with_meta(text: str, max_results_per_type: int = 500, *, ruleset: str
     chunk_chars = max(10000, _env_int("PII_SPLIT_CHUNK_CHARS", 50000))
     overlap_chars = max(0, _env_int("PII_SPLIT_OVERLAP_CHARS", 2000))
     workers = max(1, _env_int("PII_SPLIT_MAX_WORKERS", 1))
-    split_cap = max(1, _env_int("PII_SPLIT_MAX_RESULTS_PER_TYPE", 200))
     split_max_chunks = max(1, _env_int("PII_SPLIT_MAX_CHUNKS", 64))
 
     if (not split_enabled) or (len(src) < split_len):
@@ -185,16 +206,19 @@ def detect_with_meta(text: str, max_results_per_type: int = 500, *, ruleset: str
             )
         return found, meta
 
-    ranges = _split_text_ranges(src, chunk_chars=chunk_chars, overlap_chars=overlap_chars)
-    if len(ranges) > split_max_chunks:
-        ranges = ranges[:split_max_chunks]
+    ranges = _split_text_ranges_bounded(
+        src,
+        chunk_chars=chunk_chars,
+        overlap_chars=overlap_chars,
+        max_chunks=split_max_chunks,
+    )
     if trace:
         logger.info(
             "[trace] req=%s mode=split len=%d chunks=%d chunk_chars=%d overlap=%d workers=%d",
             req_id, len(src), len(ranges), chunk_chars, overlap_chars, workers
         )
     if len(ranges) <= 1:
-        capped = min(int(max_results_per_type or 500), split_cap)
+        capped = int(max_results_per_type or 500)
         found, meta = _detect_with_meta(src, max_results_per_type=capped, ruleset=ruleset)
         found, removed = apply_detection_exclusions(found)
         if removed:
@@ -207,7 +231,7 @@ def detect_with_meta(text: str, max_results_per_type: int = 500, *, ruleset: str
             )
         return found, meta
 
-    per_chunk_limit = min(int(max_results_per_type or 500), split_cap)
+    per_chunk_limit = int(max_results_per_type or 500)
     merged: Dict[str, List[dict]] = {}
     meta = None
 
