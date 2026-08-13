@@ -29,7 +29,7 @@ cp .env.example .env
 | 변수 | 기본값 | 설명 |
 | --- | --- | --- |
 | `PII_IMAGE_REPO` | `xcn-pii` | Docker 이미지 repository |
-| `PII_IMAGE_TAG` | `1.0.8` | Docker 이미지 tag |
+| `PII_IMAGE_TAG` | `1.0.9` | Docker 이미지 tag |
 | `PII_HTTPS_PORT` | `28443` | HTTPS proxy 외부 포트 |
 | `PII_HTTPS_SERVER_NAME` | `_` | TLS server_name |
 | `PII_RULESET` | `default` | 기본 룰셋 |
