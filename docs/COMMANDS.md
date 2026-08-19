@@ -3,6 +3,8 @@
 이 문서는 `xcn-pii-full` 프로젝트에서 자주 사용하는 실행, 종료, 점검, API 호출, 벤치마크 명령을 정리한다.
 
 처음 사용하는 운영자/연동 개발자는 `docs/USER_TRAINING_GUIDE.md`를 먼저 읽으면 전체 흐름을 빠르게 따라 할 수 있다.
+소스 변경 후 CPU/GPU 이미지를 빠르게 다시 만드는 절차는
+[`FAST_SOURCE_RELEASE_BUILD.md`](FAST_SOURCE_RELEASE_BUILD.md)를 참고한다.
 
 모든 명령은 프로젝트 루트에서 실행한다.
 

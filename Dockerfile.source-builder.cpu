@@ -1,0 +1,25 @@
+ARG BASE_RUNTIME_IMAGE=xcn-pii/api-grpc-cpu:latest
+
+FROM ${BASE_RUNTIME_IMAGE}
+
+ARG HTTP_BASE_IMAGE_ID
+ARG GRPC_BASE_IMAGE_ID
+ARG DEPENDENCY_SHA256
+
+LABEL xcn.source-build.profile="cpu" \
+      xcn.source-build.http-base-image-id="${HTTP_BASE_IMAGE_ID}" \
+      xcn.source-build.grpc-base-image-id="${GRPC_BASE_IMAGE_ID}" \
+      xcn.source-build.dependencies-sha256="${DEPENDENCY_SHA256}"
+
+USER root
+
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends build-essential \
+ && rm -rf /var/lib/apt/lists/*
+
+RUN python3 -m pip install \
+      --target /opt/pydeps \
+      --no-deps \
+      Cython
+
+WORKDIR /app

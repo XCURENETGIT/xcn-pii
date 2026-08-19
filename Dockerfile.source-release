@@ -1,0 +1,62 @@
+ARG SOURCE_BUILDER_IMAGE=xcn-pii/source-builder-cpu:latest
+ARG BASE_RUNTIME_IMAGE=xcn-pii/api-grpc-cpu:latest
+
+FROM ${SOURCE_BUILDER_IMAGE} AS app-builder
+
+WORKDIR /app
+
+RUN rm -rf /app/app /app/bin /app/build
+
+COPY VERSION /app/VERSION
+COPY setup.py /app/setup.py
+COPY app /app/app
+COPY bin /app/bin
+
+RUN chmod +x /app/bin/xutf_8 \
+ && PYTHONPATH=/opt/pydeps python3 setup.py build_ext --inplace \
+ && find /app/app -type f -name '*.so' -exec strip --strip-unneeded '{}' + \
+ && find /app/app -type f -name '*.py' \
+      ! -name '__init__.py' \
+      ! -name 'main.py' \
+      ! -name 'grpc_server.py' \
+      ! -name 'context_debug_api.py' \
+      ! -name 'detection_exclusions.py' \
+      ! -name 'logging_utils.py' \
+      ! -name 'logrotate.py' \
+      ! -name 'pii.py' \
+      ! -name 'response_builders.py' \
+      ! -name 'rules_loader.py' \
+      ! -name 'schemas.py' \
+      ! -path '/app/app/pii_engine/*' \
+      ! -path '/app/app/proto/*' \
+      ! -path '/app/app/rules/*' \
+      ! -path '/app/app/static/*' \
+      -delete \
+ && find /app/app -type f -name 'test_*.py' -delete \
+ && find /app/app -type f -name '*.c' -delete \
+ && find /app/app -type d -name '__pycache__' -prune -exec rm -rf '{}' + \
+ && rm -rf /app/build
+
+FROM ${BASE_RUNTIME_IMAGE}
+
+ARG BASE_IMAGE_ID
+ARG DEPENDENCY_SHA256
+ARG RELEASE_VERSION
+ARG RUNTIME_KIND
+ARG RUNTIME_PROFILE
+
+LABEL xcn.source-build.base-image-id="${BASE_IMAGE_ID}" \
+      xcn.source-build.dependencies-sha256="${DEPENDENCY_SHA256}" \
+      xcn.source-build.release-version="${RELEASE_VERSION}" \
+      xcn.source-build.runtime-kind="${RUNTIME_KIND}" \
+      xcn.source-build.profile="${RUNTIME_PROFILE}"
+
+WORKDIR /app
+
+RUN rm -rf /app/app /app/bin
+
+COPY --from=app-builder /app/app /app/app
+COPY --from=app-builder /app/bin /app/bin
+COPY --from=app-builder /app/VERSION /app/VERSION
+
+RUN chmod +x /app/bin/xutf_8
