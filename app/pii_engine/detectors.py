@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from .common import *
+from ..sensitive_values import SensitivePatternSet
 
 
 def _typed_structure_valid(out_key: str, text: str, item: dict) -> bool:
@@ -293,6 +294,26 @@ class RegexDetector(Detector):
             scan_ms=f"{scan_ms:.1f}",
             post_ms=f"{post_ms:.1f}",
             finalize_ms=f"{_timing_ms(t0_finalize):.1f}",
+            matches=len(items),
+        )
+
+
+class SensitiveValueDetector(Detector):
+    """Detect a sensitive value captured by a named regex group."""
+
+    def __init__(self, out_key: str, rule_doc: Dict[str, Any]):
+        self.out_key = str(out_key).upper()
+        self.pattern_set = SensitivePatternSet(self.out_key, rule_doc)
+
+    def run(self, ctx: DetectContext) -> None:
+        t0 = _timing_now()
+        items = self.pattern_set.find(ctx.text, max_results=ctx.max_results)
+        existing = ctx.get(self.out_key) or []
+        ctx.set(self.out_key, _finalize(existing + items))
+        _log_timing(
+            f"{self.out_key.lower()}.sensitive",
+            req_id=ctx.request_id,
+            ms=f"{_timing_ms(t0):.1f}",
             matches=len(items),
         )
 

@@ -1,0 +1,35 @@
+# API keys are detected either by a well-known provider prefix or by an
+# explicit key/secret assignment whose value has enough entropy.
+enabled: true
+max_match_len: 512
+patterns:
+  - name: aws_access_key_id
+    detected_by: aws_access_key_id
+    regex: '(?<![A-Z0-9])(?P<value>(?:AKIA|ASIA)[A-Z0-9]{16})(?![A-Z0-9])'
+  - name: github_legacy_token
+    detected_by: github_token
+    regex: '(?<![A-Za-z0-9_])(?P<value>gh[pousr]_[A-Za-z0-9]{36,255})(?![A-Za-z0-9])'
+  - name: github_fine_grained_token
+    detected_by: github_token
+    regex: '(?<![A-Za-z0-9_])(?P<value>github_pat_[A-Za-z0-9_]{22,255})(?![A-Za-z0-9_])'
+  - name: google_api_key
+    detected_by: google_api_key
+    regex: '(?<![A-Za-z0-9_-])(?P<value>AIza[0-9A-Za-z_-]{35})(?![A-Za-z0-9_-])'
+  - name: slack_token
+    detected_by: slack_token
+    regex: '(?<![A-Za-z0-9-])(?P<value>xox[baprs]-[A-Za-z0-9-]{20,255})(?![A-Za-z0-9-])'
+  - name: openai_api_key
+    detected_by: openai_api_key
+    regex: '(?<![A-Za-z0-9_-])(?P<value>sk-(?:proj-)?[A-Za-z0-9_-]{20,255})(?![A-Za-z0-9_-])'
+  - name: stripe_secret_key
+    detected_by: stripe_secret_key
+    regex: '(?<![A-Za-z0-9_])(?P<value>(?:sk|rk)_(?:live|test)_[A-Za-z0-9]{16,255})(?![A-Za-z0-9])'
+  - name: generic_api_key_assignment
+    detected_by: generic_api_key
+    regex: >-
+      (?:\bapi[\s_-]*key\b|\baccess[\s_-]*key\b|\bsecret[\s_-]*key\b|\bclient[\s_-]*secret\b|API\s*키|접근\s*키|비밀\s*키)\s*(?:은|는)?\s*[:=]\s*["']?(?P<value>[A-Za-z0-9_./+=-]{16,512})["']?
+    flags:
+      ignorecase: true
+    min_length: 16
+    min_entropy: 3.0
+    min_character_classes: 2

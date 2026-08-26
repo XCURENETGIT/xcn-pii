@@ -66,6 +66,16 @@ class PiiData(BaseModel):
     VN_TIN: Optional[List[MatchItem]] = None
     VN_SI_CNT: Optional[int] = None
     VN_SI: Optional[List[MatchItem]] = None
+    OTP_CNT: Optional[int] = None
+    OTP: Optional[List[MatchItem]] = None
+    API_KEY_CNT: Optional[int] = None
+    API_KEY: Optional[List[MatchItem]] = None
+    AUTH_TOKEN_CNT: Optional[int] = None
+    AUTH_TOKEN: Optional[List[MatchItem]] = None
+    PASSWORD_CNT: Optional[int] = None
+    PASSWORD: Optional[List[MatchItem]] = None
+    INTERNAL_ACCESS_CNT: Optional[int] = None
+    INTERNAL_ACCESS: Optional[List[MatchItem]] = None
 
 class PiiMeta(BaseModel):
     ruleset_name: str

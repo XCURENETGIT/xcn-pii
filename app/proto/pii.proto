@@ -115,6 +115,21 @@ message PiiData {
 
   int32 mcn_cnt = 67;
   repeated MatchItem mcn = 68;
+
+  int32 otp_cnt = 69;
+  repeated MatchItem otp = 70;
+
+  int32 api_key_cnt = 71;
+  repeated MatchItem api_key = 72;
+
+  int32 auth_token_cnt = 73;
+  repeated MatchItem auth_token = 74;
+
+  int32 password_cnt = 75;
+  repeated MatchItem password = 76;
+
+  int32 internal_access_cnt = 77;
+  repeated MatchItem internal_access = 78;
 }
 
 message PiiMeta {

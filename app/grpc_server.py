@@ -19,6 +19,7 @@ from .detection_exclusions import exclusion_status, write_detection_exclusion_fi
 from .pii import detect_with_meta
 from .pii_engine import preload_models
 from .proto import pii_pb2, pii_pb2_grpc
+from .sensitive_values import redact_sensitive_text
 from .version import APP_VERSION
 
 logger = logging.getLogger("pii.grpc")
@@ -82,7 +83,21 @@ def _truncate_request_text(text: str, limit: int | None = None) -> str:
 def _request_text_log_suffix(text: str) -> str:
     if not _env_bool("PII_LOG_REQUEST_TEXT_ENABLED", False):
         return " text_logged=false"
-    return f' text_logged=true text="{_truncate_request_text(text)}"'
+    logged_text = str(text or "")
+    redaction_status = "disabled"
+    if _env_bool("PII_LOG_REQUEST_TEXT_REDACT_SENSITIVE", True):
+        try:
+            redacted = redact_sensitive_text(logged_text)
+            redaction_status = "applied" if redacted != logged_text else "no_match"
+            logged_text = redacted
+        except Exception:
+            logger.exception("sensitive request-log redaction failed")
+            redaction_status = "failed_closed"
+            logged_text = "[REDACTION_FAILED]"
+    return (
+        f" text_logged=true sensitive_redaction={redaction_status} "
+        f"text={json.dumps(_truncate_request_text(logged_text), ensure_ascii=False)}"
+    )
 
 
 def _build_match_item(pb2: Any, it: dict) -> Any:
@@ -126,6 +141,11 @@ def _build_data(pb2: Any, found: dict) -> Any:
         "VN_PN": ("vn_pn_cnt", "vn_pn"),
         "VN_TIN": ("vn_tin_cnt", "vn_tin"),
         "VN_SI": ("vn_si_cnt", "vn_si"),
+        "OTP": ("otp_cnt", "otp"),
+        "API_KEY": ("api_key_cnt", "api_key"),
+        "AUTH_TOKEN": ("auth_token_cnt", "auth_token"),
+        "PASSWORD": ("password_cnt", "password"),
+        "INTERNAL_ACCESS": ("internal_access_cnt", "internal_access"),
     }
     kwargs: dict[str, Any] = {}
     for key, (cnt_field, items_field) in field_map.items():
@@ -138,7 +158,11 @@ def _build_data(pb2: Any, found: dict) -> Any:
 
 
 def _format_count_summary(found: dict) -> str:
-    keys = ("SN", "FN", "SSN", "DN", "PN", "MN", "BRN", "BN", "AN", "CN", "CPN", "CRN", "IMEI", "MCN", "EML", "VN_CCCD", "VN_MN", "VN_PN", "VN_TIN", "VN_SI")
+    keys = (
+        "SN", "FN", "SSN", "DN", "PN", "MN", "BRN", "BN", "AN", "CN", "CPN", "CRN", "IMEI", "MCN", "EML",
+        "VN_CCCD", "VN_MN", "VN_PN", "VN_TIN", "VN_SI",
+        "OTP", "API_KEY", "AUTH_TOKEN", "PASSWORD", "INTERNAL_ACCESS",
+    )
     return " ".join(f"{key}={len(found.get(key, []) or [])}" for key in keys)
 
 

@@ -12,7 +12,11 @@ from pathlib import Path
 from typing import Any
 
 
-PII_TYPES = ("SN", "FN", "SSN", "DN", "PN", "MN", "BN", "BRN", "AN", "CN", "CPN", "CRN", "IMEI", "MCN", "EML", "VN_CCCD", "VN_MN", "VN_PN", "VN_TIN", "VN_SI")
+PII_TYPES = (
+    "SN", "FN", "SSN", "DN", "PN", "MN", "BN", "BRN", "AN", "CN", "CPN", "CRN", "IMEI", "MCN", "EML",
+    "VN_CCCD", "VN_MN", "VN_PN", "VN_TIN", "VN_SI",
+    "OTP", "API_KEY", "AUTH_TOKEN", "PASSWORD", "INTERNAL_ACCESS",
+)
 _TYPE_SET = set(PII_TYPES)
 _SEPARATOR_RE = re.compile(r"[\s\-._@:/\\]+")
 

@@ -113,6 +113,13 @@ def build_pipeline(bundle: RuleBundle) -> List[Detector]:
     ip_regexes = _build_regexes(ip_doc, macros={})
     ip_hs_supported = _get_hs_supported_pattern_indexes(ip_doc, macros={})
     ip_supplement_regexes = _build_regexes_by_indexes(ip_doc, set(range(len(ip_doc.get("patterns") or []))) - ip_hs_supported, macros={})
+    sensitive_steps = {
+        "otp": ("OTP", docs.get("otp") or {}),
+        "api_key": ("API_KEY", docs.get("api_key") or {}),
+        "auth_token": ("AUTH_TOKEN", docs.get("auth_token") or {}),
+        "password": ("PASSWORD", docs.get("password") or {}),
+        "internal_access": ("INTERNAL_ACCESS", docs.get("internal_access") or {}),
+    }
 
     # Hyperscan-first for easy-compatible regex types (fallback to Python regex on failure)
     hs_ssn_db: HyperscanDB | None = None
@@ -240,6 +247,11 @@ def build_pipeline(bundle: RuleBundle) -> List[Detector]:
     pipeline: List[Detector] = []
     for step in steps:
         step = str(step)
+
+        if step in sensitive_steps:
+            out_key, rule_doc = sensitive_steps[step]
+            pipeline.append(SensitiveValueDetector(out_key, rule_doc))
+            continue
 
         if step == "dn":
             max_len = int(dn_doc.get("max_match_len") or max_len_default)

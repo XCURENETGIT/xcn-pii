@@ -1,0 +1,27 @@
+# Authentication tokens: JWT, Authorization headers, and explicitly labeled
+# opaque access/refresh tokens.
+enabled: true
+max_match_len: 4096
+patterns:
+  - name: jwt
+    detected_by: jwt
+    regex: '(?<![A-Za-z0-9_-])(?P<value>eyJ[A-Za-z0-9_-]{5,}\.eyJ[A-Za-z0-9_-]{5,}\.[A-Za-z0-9_-]{8,})(?![A-Za-z0-9_-])'
+  - name: bearer_token
+    detected_by: bearer_token
+    regex: '(?:\bauthorization\s*:\s*)?\bbearer\s+(?P<value>[A-Za-z0-9._~+/=-]{16,4096})'
+    flags:
+      ignorecase: true
+    min_length: 16
+  - name: basic_auth_token
+    detected_by: basic_auth_token
+    regex: '\bauthorization\s*:\s*basic\s+(?P<value>[A-Za-z0-9+/]{8,4096}={0,2})'
+    flags:
+      ignorecase: true
+  - name: labeled_auth_token
+    detected_by: labeled_auth_token
+    regex: >-
+      (?:\baccess[\s_-]*token\b|\brefresh[\s_-]*token\b|\bauth(?:entication)?[\s_-]*token\b|인증\s*토큰|접근\s*토큰|갱신\s*토큰)\s*(?:은|는)?\s*[:=]\s*["']?(?P<value>[A-Za-z0-9._~+/=-]{16,4096})["']?
+    flags:
+      ignorecase: true
+    min_length: 16
+    min_entropy: 2.5

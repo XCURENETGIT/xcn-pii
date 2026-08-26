@@ -23,6 +23,8 @@ def _step_name(step: Detector) -> str:
         return "sn.regex"
     if isinstance(step, RegexDetector):
         return f"{step.out_key.lower()}.regex"
+    if isinstance(step, SensitiveValueDetector):
+        return f"{step.out_key.lower()}.sensitive"
     if isinstance(step, DNDetector):
         return "dn.hyperscan"
     if isinstance(step, MNPostFilter):

@@ -21,6 +21,11 @@ steps:
   - brn
   - bn
   - an
+  - otp
+  - api_key
+  - auth_token
+  - password
+  - internal_access
   - post_mn
   - post_bn
 # Rule document file mapping used by the engine loader.
@@ -38,6 +43,11 @@ rule_files:
   brn: brn.yaml
   bn: bn_strict.yaml
   an: an.yaml
+  otp: otp.yaml
+  api_key: api_key.yaml
+  auth_token: auth_token.yaml
+  password: password.yaml
+  internal_access: internal_access.yaml
   cn: cn.yaml
   cpn: cpn.yaml
   crn: crn.yaml

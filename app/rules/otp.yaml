@@ -1,0 +1,13 @@
+# One-time password / verification code. A numeric value is accepted only when
+# an explicit OTP or verification-code label is nearby.
+enabled: true
+max_match_len: 8
+patterns:
+  - name: otp_labeled
+    detected_by: otp_labeled
+    regex: >-
+      (?:\bOTP\b|one[\s_-]*time\s*(?:password|passcode|code)|verification\s*(?:code|number)|인증\s*(?:번호|코드)|보안\s*코드|일회용\s*(?:비밀번호|암호|코드))\s*(?:(?:은|는|입니다|is|equals?)\s*|[:=\-]\s*)*["']?(?<!\d)(?P<value>\d{4,8})(?!\d)["']?
+    flags:
+      ignorecase: true
+    min_length: 4
+    max_length: 8

@@ -116,6 +116,7 @@ function flattenToSpansAll(apiData) {
   const types = [
     "SN", "FN", "SSN", "DN", "PN", "MN", "BRN", "BN", "AN", "CN", "EML",
     "CPN", "CRN", "IMEI", "MCN", "VN_CCCD", "VN_MN", "VN_PN", "VN_TIN", "VN_SI",
+    "OTP", "API_KEY", "AUTH_TOKEN", "PASSWORD", "INTERNAL_ACCESS",
     "email", "eml"
   ];
   const spans = [];
@@ -216,7 +217,7 @@ function renderTable(rowsHtml) {
 }
 
 function renderTypeCounts(data) {
-  const keys = ["SN", "FN", "SSN", "DN", "PN", "MN", "BRN", "BN", "AN", "CN", "CPN", "CRN", "IMEI", "MCN", "EML", "VN_CCCD", "VN_MN", "VN_PN", "VN_TIN", "VN_SI"];
+  const keys = ["SN", "FN", "SSN", "DN", "PN", "MN", "BRN", "BN", "AN", "CN", "CPN", "CRN", "IMEI", "MCN", "EML", "VN_CCCD", "VN_MN", "VN_PN", "VN_TIN", "VN_SI", "OTP", "API_KEY", "AUTH_TOKEN", "PASSWORD", "INTERNAL_ACCESS"];
   return keys
     .map((key) => `${key} ${(data?.[key] || []).length}건`)
     .join(" · ");
