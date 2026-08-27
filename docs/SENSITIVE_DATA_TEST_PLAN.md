@@ -9,7 +9,7 @@
 - 신규 타입: `OTP`, `API_KEY`, `AUTH_TOKEN`, `PASSWORD`, `INTERNAL_ACCESS`
 - 기존 회귀: `MN`
 
-현재 테스트케이스는 양성 18개, 기존 기능 회귀 2개, 음성 11개로 구성된다. 전체 실행 건수는 `31 cases × 2 protocols × 2 rulesets = 124`건이다.
+현재 테스트케이스는 양성 55개, 기존 기능 회귀 2개, 음성 25개로 구성된다. 전체 실행 건수는 `82 cases × 2 protocols × 2 rulesets = 328`건이다.
 
 ## 판정 기준
 

@@ -31,6 +31,8 @@ def _compile_flags(flags_cfg: Dict[str, Any] | None) -> int:
         flags |= re.MULTILINE
     if cfg.get("dotall"):
         flags |= re.DOTALL
+    if cfg.get("verbose"):
+        flags |= re.VERBOSE
     return flags
 
 
@@ -61,6 +63,14 @@ def _ip_is_internal(value: str) -> bool:
     return bool(address.is_private or address.is_loopback or address.is_link_local)
 
 
+def _network_is_internal(value: str) -> bool:
+    try:
+        network = ipaddress.ip_network(str(value or "").strip(), strict=False)
+    except ValueError:
+        return False
+    return bool(network.is_private or network.is_loopback or network.is_link_local)
+
+
 def _host_is_internal(value: str) -> bool:
     host = _strip_host_port(value).strip().rstrip(".").lower()
     if not host:
@@ -77,13 +87,20 @@ def _host_is_internal(value: str) -> bool:
         ".intranet",
         ".svc",
         ".svc.cluster.local",
+        ".cluster.local",
+        ".home.arpa",
+        ".private",
+        ".localdomain",
     )
     return host.endswith(suffixes)
 
 
 def _url_is_internal(value: str) -> bool:
+    raw = str(value or "").strip()
+    if raw.lower().startswith("jdbc:"):
+        raw = raw[5:]
     try:
-        parsed = urlsplit(str(value or "").strip())
+        parsed = urlsplit(raw)
     except ValueError:
         return False
     return bool(parsed.scheme and parsed.hostname and _host_is_internal(parsed.hostname))
@@ -108,7 +125,7 @@ class SensitivePatternSet:
         self.out_key = str(out_key).upper()
         self.enabled = bool(rule_doc.get("enabled", True))
         self.max_match_len = max(1, int(rule_doc.get("max_match_len") or 4096))
-        self.patterns: List[Tuple[Pattern[str], Dict[str, Any]]] = []
+        self.patterns: List[Tuple[Pattern[str], Dict[str, Any], Tuple[str, ...]]] = []
 
         patterns = rule_doc.get("patterns") or []
         if not isinstance(patterns, list):
@@ -123,7 +140,13 @@ class SensitivePatternSet:
                 compiled = re.compile(raw, _compile_flags(spec.get("flags")))
             except re.error as exc:
                 raise ValueError(f"invalid {self.out_key} regex at index {index}: {exc}") from exc
-            self.patterns.append((compiled, dict(spec)))
+            raw_prefilter_any = spec.get("prefilter_any") or []
+            if isinstance(raw_prefilter_any, str):
+                raw_prefilter_any = [raw_prefilter_any]
+            if not isinstance(raw_prefilter_any, (list, tuple)):
+                raise ValueError(f"{self.out_key}.prefilter_any must be a list at index {index}")
+            prefilter_any = tuple(str(item).lower() for item in raw_prefilter_any if str(item))
+            self.patterns.append((compiled, dict(spec), prefilter_any))
 
     @staticmethod
     def _value_span(match: re.Match[str], spec: Dict[str, Any]) -> Tuple[int, int] | None:
@@ -154,6 +177,8 @@ class SensitivePatternSet:
         validator = str(spec.get("validator") or "").strip().lower()
         if validator == "private_ip":
             return _ip_is_internal(value)
+        if validator == "private_network":
+            return _network_is_internal(value)
         if validator == "internal_host":
             return _host_is_internal(value)
         if validator == "internal_url":
@@ -165,7 +190,13 @@ class SensitivePatternSet:
             return []
 
         found: List[dict] = []
-        for regex, spec in self.patterns:
+        lowered_text: str | None = None
+        for regex, spec, prefilter_any in self.patterns:
+            if prefilter_any:
+                if lowered_text is None:
+                    lowered_text = text.lower()
+                if not any(hint in lowered_text for hint in prefilter_any):
+                    continue
             for match in regex.finditer(text):
                 span = self._value_span(match, spec)
                 if span is None:

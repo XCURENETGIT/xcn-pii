@@ -8,11 +8,11 @@
 
 | 반환 타입 | 탐지 대상 | 기본 판단 기준 |
 | --- | --- | --- |
-| `OTP` | OTP, 인증번호, verification code | 관련 라벨 주변의 4~8자리 숫자 |
-| `API_KEY` | AWS, GitHub, Google, Slack, OpenAI, Stripe 키와 일반 API 키 | 알려진 공급자 형식 또는 명시적인 키 라벨 + 길이/엔트로피 조건 |
-| `AUTH_TOKEN` | JWT, Bearer, Basic, access/refresh/auth token | 토큰 구조 또는 인증 헤더/라벨 |
-| `PASSWORD` | 비밀번호, password, passwd, pwd, passphrase | 명시적인 라벨에 할당된 따옴표/비따옴표 값 |
-| `INTERNAL_ACCESS` | 사설 IP, 내부 호스트, 내부 접속 URL | 사설·loopback·link-local IP 또는 내부용 호스트 구조 |
+| `OTP` | OTP, MFA/2FA/TOTP, 인증·확인·보안·로그인 코드 | 관련 라벨 전후의 4~8자리 숫자 |
+| `API_KEY` | 공급자 전용 키와 일반 API/서비스/구독/웹훅 키 | 알려진 공급자 형식 또는 명시적인 키 라벨 + 길이/엔트로피 조건 |
+| `AUTH_TOKEN` | JWT, Bearer, Basic, access/refresh/session/CSRF token | 토큰 구조 또는 인증 헤더/설정 라벨 |
+| `PASSWORD` | 비밀번호, password/passwd/pwd/passphrase | JSON/YAML/XML/CLI 및 명시적인 문장 라벨에 할당된 값 |
+| `INTERNAL_ACCESS` | 사설 IP/CIDR, 내부 호스트·URL·socket | 사설·loopback·link-local 네트워크 또는 내부용 구조 |
 
 예시:
 
@@ -24,6 +24,16 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMjM0In0.signature123
 내부 URL: postgresql://svc:secret@db01.internal:5432/app
 ```
 
+## 지원 문맥
+
+- OTP: `OTP`, `TOTP`, `HOTP`, `MFA`, `2FA`, one-time password, verification/authentication/security/confirmation/login code, 인증번호, 본인확인 코드, 다단계·이중·2차 인증 코드 등
+- API Key 라벨: `apiKey`, `X-API-Key`, access/secret/application/service/subscription/consumer/signing key, client/webhook secret 및 한국어 대응 표현
+- API Key 공급자 형식: AWS, GitHub, GitLab, Google, Slack, OpenAI, Stripe, Hugging Face, npm, SendGrid, Twilio
+- 인증토큰: Authorization/Proxy-Authorization의 Bearer·Basic·Token scheme, access/refresh/auth/session/security/OAuth/SSO/CSRF/XSRF token, JWT, session ID 및 한국어 대응 표현
+- 비밀번호: JSON/YAML/환경변수 키, `password is ...`, 한국어 조사·입력 지시, `--password` CLI 인수, XML password 요소
+- 내부접속정보: HTTP(S), SSH/SFTP/FTP, JDBC 및 주요 DB·Redis·AMQP·Kafka·LDAP·TCP·WebSocket URL, 사설 IPv4/IPv6/CIDR, DB/cache/broker/VPN/bastion/host/endpoint 라벨, Unix socket 경로
+- 라벨이 값보다 앞서는 형식뿐 아니라 `739201 is your verification code`, `482913은 인증번호입니다`, `... is the access token/service key`와 같은 값 우선 문장도 지원한다.
+
 탐지 결과는 기존 HTTP 응답의 `data`에 `OTP_CNT`/`OTP`, `API_KEY_CNT`/`API_KEY`, `AUTH_TOKEN_CNT`/`AUTH_TOKEN`, `PASSWORD_CNT`/`PASSWORD`, `INTERNAL_ACCESS_CNT`/`INTERNAL_ACCESS` 쌍으로 추가된다. gRPC에서는 동일 항목을 소문자 snake_case로 반환한다.
 
 ## 오탐 방지 기준
@@ -32,7 +42,8 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMjM0In0.signature123
 - 일반 API Key는 명시적인 키 라벨이 있어야 하며 최소 길이, Shannon entropy, 문자 종류 조건을 함께 검사한다.
 - 비밀번호는 문장 안의 일반적인 `password` 단어가 아니라 값 할당 형식만 탐지한다.
 - `INTERNAL_ACCESS`는 공인 IP와 외부 공개 URL을 제외한다.
-- 내부 호스트는 단일 호스트명, `localhost`, 사설 IP 또는 `.internal`, `.local`, `.lan`, `.corp`, `.intranet`, `.svc` 계열을 허용한다.
+- 내부 호스트는 명시적인 접속 라벨의 단일 호스트명, `localhost`, 사설 IP 또는 `.internal`, `.local`, `.lan`, `.corp`, `.intranet`, `.svc`, `.cluster.local`, `.home.arpa`, `.private`, `.localdomain` 계열을 허용한다.
+- 공개 도메인, 공인 IPv4/IPv6/CIDR, 설명 문장, 짧거나 저엔트로피인 일반 키·토큰은 제외한다.
 
 ## 규칙 관리
 
@@ -49,13 +60,15 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMjM0In0.signature123
 - `min_length`, `max_length`
 - `min_entropy`
 - `min_character_classes`
-- `validator`: `private_ip`, `internal_host`, `internal_url`
+- `validator`: `private_ip`, `private_network`, `internal_host`, `internal_url`
+- `flags.verbose`: 긴 문맥 정규식을 가독성 있게 여러 줄로 작성
+- `prefilter_any`: 지정한 문맥 또는 공급자 prefix가 원문에 하나도 없으면 해당 정규식 실행 생략
 - `trim_trailing`
 
 규칙을 바꾼 뒤에는 최소한 다음 테스트를 실행한다.
 
 ```powershell
-python -m pytest -q app/test_sensitive_detection.py app/test_sensitive_redaction.py
+python -m pytest -q app/test_sensitive_detection.py app/test_sensitive_contexts.py app/test_sensitive_redaction.py
 ```
 
 ## 요청 원문 로그 보호

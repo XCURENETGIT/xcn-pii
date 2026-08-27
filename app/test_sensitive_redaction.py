@@ -48,6 +48,27 @@ def test_http_and_grpc_request_log_suffix_redacts_by_default(monkeypatch) -> Non
         assert "[REDACTED:PASSWORD]" in suffix
 
 
+def test_expanded_contexts_are_redacted() -> None:
+    text = (
+        'MFA code: 739201 '
+        '{"apiKey":"AbCDef1234567890xyz"} '
+        '{"X-Auth-Token":"Auth-2026.AbCdEfGhIjKl"} '
+        '{"password":"Json!Pass-2026"} '
+        'jdbc:postgresql://db01.internal:5432/app'
+    )
+    redacted = redact_sensitive_text(text)
+    for value in (
+        "739201",
+        "AbCDef1234567890xyz",
+        "Auth-2026.AbCdEfGhIjKl",
+        "Json!Pass-2026",
+        "jdbc:postgresql://db01.internal:5432/app",
+    ):
+        assert value not in redacted
+    for out_type in ("OTP", "API_KEY", "AUTH_TOKEN", "PASSWORD", "INTERNAL_ACCESS"):
+        assert f"[REDACTED:{out_type}]" in redacted
+
+
 def test_request_log_redaction_fails_closed(monkeypatch) -> None:
     monkeypatch.setenv("PII_LOG_REQUEST_TEXT_ENABLED", "true")
     monkeypatch.setenv("PII_LOG_REQUEST_TEXT_REDACT_SENSITIVE", "true")

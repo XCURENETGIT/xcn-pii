@@ -5,24 +5,53 @@ max_match_len: 4096
 patterns:
   - name: internal_url
     detected_by: internal_url
+    prefilter_any: ["://"]
     regex: >-
-      (?P<value>(?:https?|ssh|sftp|ftp|postgres(?:ql)?|mysql|mongodb(?:\+srv)?|redis|amqp)://[^\s<>"']+)
+      (?P<value>(?:(?:jdbc:)?(?:https?|ssh|sftp|ftp|postgres(?:ql)?|mysql|mariadb|mssql|sqlserver|oracle|mongodb(?:\+srv)?|redis|rediss|amqp|amqps|kafka|nats|ldap|ldaps|rmi|tcp|ws|wss))://[^\s<>"']+)
     flags:
       ignorecase: true
     validator: internal_url
     trim_trailing: '.,;)]}'
+  - name: private_network
+    detected_by: private_network
+    prefilter_any: ["/"]
+    regex: '(?<![0-9A-Fa-f:.])(?P<value>(?:(?:\d{1,3}\.){3}\d{1,3}|[0-9A-Fa-f:]{2,45})/\d{1,3})(?![0-9A-Fa-f:./])'
+    validator: private_network
   - name: private_ipv4
     detected_by: private_ipv4
+    prefilter_any: ["."]
     regex: '(?<![\d.])(?P<value>(?:\d{1,3}\.){3}\d{1,3})(?![\d.])'
     validator: private_ip
   - name: private_ipv6
     detected_by: private_ipv6
+    prefilter_any: [":"]
     regex: '(?<![0-9A-Fa-f:])(?P<value>(?=[0-9A-Fa-f:]{2,45}(?![0-9A-Fa-f:]))(?:[0-9A-Fa-f]{0,4}:){2,7}[0-9A-Fa-f]{0,4})(?![0-9A-Fa-f:])'
     validator: private_ip
   - name: labeled_internal_host
     detected_by: internal_host
+    prefilter_any: [server, host, endpoint, address, gateway, proxy, vpn, bastion, database, db, redis, cache, mongo, kafka, broker, elasticsearch, 내부, 사내, 업무, 관리, 운영, 개발, 검증, 테스트, 스테이징, 접속, 서버, 호스트, 엔드포인트, 주소, 게이트웨이, 프록시, 배스천, 점프, 데이터베이스, 캐시, 레디스, 몽고, 카프카, 브로커]
     regex: >-
-      (?:내부\s*)?(?:접속\s*(?:주소|정보|IP)|서버\s*(?:주소|IP)?|호스트(?:명)?|host(?:name)?|endpoint)\s*(?:은|는)?\s*[:=]\s*(?![A-Za-z][A-Za-z0-9+.-]*://)(?P<value>(?:\[[0-9A-Fa-f:]+\]|[A-Za-z0-9][A-Za-z0-9.-]{0,252})(?::\d{1,5})?)
+      (?<![A-Za-z0-9])["']?
+      (?:
+        (?:(?:internal|private|intranet|corp|office|production|prod|development|dev|staging|stage|test)[\s_.-]*)?
+        (?:server|host|hostname|endpoint|address|gateway|proxy|vpn|bastion|jump[\s_.-]*host|database|db|redis|cache|mongodb?|kafka|broker|elasticsearch)
+        (?:[\s_.-]*(?:server|host|hostname|address|addr|ip|endpoint|url))?
+        |
+        (?:(?:내부|사내|업무|관리|운영|개발|검증|테스트|스테이징|운영계|개발계)\s*)?
+        (?:접속\s*(?:주소|정보|IP)|서버\s*(?:주소|IP)?|호스트(?:명)?|엔드포인트|주소|게이트웨이|프록시|VPN\s*(?:주소|서버)?|배스천\s*(?:호스트|서버)?|점프\s*(?:호스트|서버)|DB\s*(?:주소|서버|호스트)?|데이터베이스\s*(?:주소|서버|호스트)?|캐시\s*(?:주소|서버|호스트)?|레디스\s*(?:주소|서버|호스트)?|몽고\s*(?:주소|서버|호스트)?|카프카\s*(?:주소|서버|호스트)?|브로커\s*(?:주소|서버|호스트)?)
+      )
+      ["']?(?![A-Za-z0-9])\s*
+      (?:(?:은|는|이|가)\s*|(?:is|equals?)\s*|[:=]\s*|=>\s*)
+      ["']?(?![A-Za-z][A-Za-z0-9+.-]*://)
+      (?P<value>(?:\[[0-9A-Fa-f:]+\]|[A-Za-z0-9][A-Za-z0-9.-]{0,252})(?::\d{1,5})?)["']?
     flags:
       ignorecase: true
+      verbose: true
     validator: internal_host
+  - name: internal_socket_path
+    detected_by: internal_socket_path
+    prefilter_any: [socket, 소켓]
+    regex: >-
+      (?<![A-Za-z0-9])["']?(?:unix[\s_.-]*socket|socket[\s_.-]*path|socket|소켓\s*(?:경로|주소)|유닉스\s*소켓)["']?(?![A-Za-z0-9])\s*(?:(?:은|는|이|가)\s*|(?:is|equals?)\s*|[:=]\s*|=>\s*)["']?(?P<value>(?:unix:)?/{1,2}[^\s,;"'<>]{1,4096})["']?
+    flags:
+      ignorecase: true

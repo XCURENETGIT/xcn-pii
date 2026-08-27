@@ -28,8 +28,8 @@ def sensitive_engine() -> PiiEngine:
 @pytest.mark.parametrize(
     ("out_key", "text", "expected", "detected_by"),
     [
-        ("OTP", "인증번호: 482913", "482913", "otp_labeled"),
-        ("OTP", "Your verification code is 847201", "847201", "otp_labeled"),
+        ("OTP", "인증번호: 482913", "482913", "otp_context_before"),
+        ("OTP", "Your verification code is 847201", "847201", "otp_context_before"),
         ("API_KEY", "AWS key AKIAIOSFODNN7EXAMPLE", "AKIAIOSFODNN7EXAMPLE", "aws_access_key_id"),
         ("API_KEY", "API_KEY=abcDEF1234567890xyz", "abcDEF1234567890xyz", "generic_api_key"),
         (
