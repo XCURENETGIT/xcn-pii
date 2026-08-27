@@ -43,7 +43,7 @@ services:
     container_name: xcn-pii-sensitive-test-grpc
     command: ["python", "-m", "app.grpc_server"]
     ports:
-      - "${PII_TEST_GRPC_PORT:-150051}:50051"
+      - "${PII_TEST_GRPC_PORT:-15051}:50051"
     environment:
       <<: *common-environment
       PII_GRPC_HOST: 0.0.0.0

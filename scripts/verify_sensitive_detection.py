@@ -220,7 +220,7 @@ def _actual_values(actual: dict[str, list[dict[str, Any]]]) -> dict[str, list[st
 def main() -> int:
     parser = argparse.ArgumentParser(description="Verify xcn-pii sensitive-data detection over HTTP and gRPC")
     parser.add_argument("--http-url", default="http://127.0.0.1:18005")
-    parser.add_argument("--grpc-target", default="127.0.0.1:150051")
+    parser.add_argument("--grpc-target", default="127.0.0.1:15051")
     parser.add_argument("--protocol", choices=("http", "grpc", "both"), default="both")
     parser.add_argument("--rulesets", default="default,strict")
     parser.add_argument("--timeout", type=float, default=45.0)
