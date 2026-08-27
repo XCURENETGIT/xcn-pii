@@ -44,6 +44,7 @@ def sensitive_engine() -> PiiEngine:
             "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0.signature123",
             "jwt",
         ),
+        ("AUTH_TOKEN", "Authorization: Basic dXNlcjpTM2NyZXQh", "dXNlcjpTM2NyZXQh", "basic_auth_token"),
         ("PASSWORD", "비밀번호: S3cure!Pass#2026", "S3cure!Pass#2026", "labeled_password"),
         ("PASSWORD", 'password="correct horse battery staple"', "correct horse battery staple", "labeled_password"),
         ("INTERNAL_ACCESS", "내부 IP: 10.20.30.40", "10.20.30.40", "private_ipv4"),
@@ -54,6 +55,7 @@ def sensitive_engine() -> PiiEngine:
             "internal_url",
         ),
         ("INTERNAL_ACCESS", "호스트: db01.internal:5432", "db01.internal:5432", "internal_host"),
+        ("INTERNAL_ACCESS", "내부 IP: ::1", "::1", "private_ipv6"),
     ],
 )
 def test_sensitive_types_detect_only_value(
@@ -78,6 +80,8 @@ def test_sensitive_types_detect_only_value(
         "비밀번호 정책을 변경하세요",
         "공개 DNS는 8.8.8.8 입니다",
         "문서는 https://www.example.com/public 에 있습니다",
+        "endpoint: https://example.com/api",
+        "공개 DNS는 2001:4860:4860::8888 입니다",
         "API_KEY=AAAAAAAAAAAAAAAAAAAA",
     ],
 )

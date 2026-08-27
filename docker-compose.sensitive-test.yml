@@ -1,0 +1,66 @@
+name: xcn-pii-sensitive-test
+
+x-common-environment: &common-environment
+  PII_RULESET: default
+  PII_CONTEXT_ENABLED: ${PII_TEST_CONTEXT_ENABLED:-true}
+  PII_MODEL_PRELOAD_ENABLED: ${PII_TEST_MODEL_PRELOAD_ENABLED:-true}
+  PII_EMBED_DEVICE: cpu
+  PII_HF_OFFLINE: "true"
+  HF_HUB_OFFLINE: "1"
+  TRANSFORMERS_OFFLINE: "1"
+  HF_DATASETS_OFFLINE: "1"
+  HF_HOME: /data/hf
+  TRANSFORMERS_CACHE: /data/hf/transformers
+  SENTENCE_TRANSFORMERS_HOME: /data/hf/sentence_transformers
+  PII_FILE_LOG_ENABLED: "true"
+  PII_LOG_DIR: /logs
+  PII_LOG_LEVEL: INFO
+  PII_LOG_TIMEZONE: Asia/Seoul
+  PII_LOG_REQUEST_TEXT_ENABLED: "true"
+  PII_LOG_REQUEST_TEXT_LIMIT: "4096"
+  PII_LOG_REQUEST_TEXT_REDACT_SENSITIVE: "true"
+  TZ: Asia/Seoul
+
+services:
+  sensitive-http:
+    image: ${PII_IMAGE_REPO:-xcn-pii}/api-http-cpu:${PII_IMAGE_TAG:?PII_IMAGE_TAG is required}
+    container_name: xcn-pii-sensitive-test-http
+    command: ["sh", "-c", "uvicorn app.main:app --host 0.0.0.0 --port 8000 --workers 1"]
+    ports:
+      - "${PII_TEST_HTTP_PORT:-18005}:8000"
+    environment:
+      <<: *common-environment
+      PII_LOG_SERVICE_NAME: sensitive-http
+      PII_LOG_FILE_NAME: sensitive-http.log
+    volumes:
+      - xcn_pii_hf_cache:/data/hf
+      - ./data/http:/app/data
+      - ./logs/http:/logs
+    restart: unless-stopped
+
+  sensitive-grpc:
+    image: ${PII_IMAGE_REPO:-xcn-pii}/api-grpc-cpu:${PII_IMAGE_TAG:?PII_IMAGE_TAG is required}
+    container_name: xcn-pii-sensitive-test-grpc
+    command: ["python", "-m", "app.grpc_server"]
+    ports:
+      - "${PII_TEST_GRPC_PORT:-150051}:50051"
+    environment:
+      <<: *common-environment
+      PII_GRPC_HOST: 0.0.0.0
+      PII_GRPC_PORT: "50051"
+      PII_GRPC_MAX_WORKERS: "2"
+      PII_DETECT_PROCESS_WORKERS: "1"
+      PII_DETECT_QUEUE_LIMIT: "1"
+      PII_DETECT_TIMEOUT_SEC: "30"
+      PII_LOG_SERVICE_NAME: sensitive-grpc
+      PII_LOG_FILE_NAME: sensitive-grpc.log
+    volumes:
+      - xcn_pii_hf_cache:/data/hf
+      - ./data/grpc:/app/data
+      - ./logs/grpc:/logs
+    restart: unless-stopped
+
+volumes:
+  xcn_pii_hf_cache:
+    external: true
+    name: xcn-pii_hf_cache

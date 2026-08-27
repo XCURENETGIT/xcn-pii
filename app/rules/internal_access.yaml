@@ -17,12 +17,12 @@ patterns:
     validator: private_ip
   - name: private_ipv6
     detected_by: private_ipv6
-    regex: '(?<![0-9A-Fa-f:])(?P<value>(?:[0-9A-Fa-f]{1,4}:){2,7}[0-9A-Fa-f]{0,4})(?![0-9A-Fa-f:])'
+    regex: '(?<![0-9A-Fa-f:])(?P<value>(?=[0-9A-Fa-f:]{2,45}(?![0-9A-Fa-f:]))(?:[0-9A-Fa-f]{0,4}:){2,7}[0-9A-Fa-f]{0,4})(?![0-9A-Fa-f:])'
     validator: private_ip
   - name: labeled_internal_host
     detected_by: internal_host
     regex: >-
-      (?:내부\s*)?(?:접속\s*(?:주소|정보|IP)|서버\s*(?:주소|IP)?|호스트(?:명)?|host(?:name)?|endpoint)\s*(?:은|는)?\s*[:=]\s*(?P<value>(?:\[[0-9A-Fa-f:]+\]|[A-Za-z0-9][A-Za-z0-9.-]{0,252})(?::\d{1,5})?)
+      (?:내부\s*)?(?:접속\s*(?:주소|정보|IP)|서버\s*(?:주소|IP)?|호스트(?:명)?|host(?:name)?|endpoint)\s*(?:은|는)?\s*[:=]\s*(?![A-Za-z][A-Za-z0-9+.-]*://)(?P<value>(?:\[[0-9A-Fa-f:]+\]|[A-Za-z0-9][A-Za-z0-9.-]{0,252})(?::\d{1,5})?)
     flags:
       ignorecase: true
     validator: internal_host
