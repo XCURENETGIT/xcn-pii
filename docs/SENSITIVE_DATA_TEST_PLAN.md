@@ -9,7 +9,7 @@
 - 신규 타입: `OTP`, `API_KEY`, `AUTH_TOKEN`, `PASSWORD`, `INTERNAL_ACCESS`
 - 기존 회귀: `MN`
 
-현재 테스트케이스는 양성 18개, 기존 기능 회귀 1개, 음성 11개로 구성된다. 전체 실행 건수는 `30 cases × 2 protocols × 2 rulesets = 120`건이다.
+현재 테스트케이스는 양성 18개, 기존 기능 회귀 2개, 음성 11개로 구성된다. 전체 실행 건수는 `31 cases × 2 protocols × 2 rulesets = 124`건이다.
 
 ## 판정 기준
 
@@ -31,6 +31,7 @@
 | 양성 | 사설 IPv4, loopback IPv6, 내부 URL, 내부 호스트 | `INTERNAL_ACCESS` 탐지 |
 | 혼합 | 신규 5개 타입을 한 요청에 입력 | 모든 타입 동시 탐지 |
 | 회귀 | `연락처: 010-1234-5678` | 기존 `MN` 탐지 |
+| 대조군 | `연락처: 010-2234-5678` | 기존 `MN` 탐지 |
 | 음성 | 라벨 없는 숫자, 3자리·9자리 OTP | `OTP` 미탐지 |
 | 음성 | 저엔트로피 또는 라벨 없는 일반 키 | `API_KEY` 미탐지 |
 | 음성 | 정책 설명 문장의 password | `PASSWORD` 미탐지 |
@@ -57,6 +58,7 @@ PII_IMAGE_TAG=<feature-image-tag> docker compose -f docker-compose.sensitive-tes
 
 ```bash
 docker run --rm --network host \
+  -e PYTHONPATH=/app \
   -v "$PWD/scripts/verify_sensitive_detection.py:/tests/verify_sensitive_detection.py:ro" \
   -v "$PWD/test-results:/results" \
   "xcn-pii/api-http-cpu:<feature-image-tag>" \
@@ -65,6 +67,8 @@ docker run --rm --network host \
     --rulesets default,strict \
     --output /results/sensitive-detection-report.json
 ```
+
+`R01`은 사용자가 기대하는 동작을 기준으로 `MN` 탐지를 요구한다. 현재 제품 규칙의 `reject_010_0_or_1xxx_4digit_middle=true` 정책은 `010-1xxx-xxxx`를 제외하므로, 정책을 유지한 빌드에서는 이 케이스가 실패로 표시된다. `R02`는 동일한 연락처 라벨에서 허용되는 `010-2xxx-xxxx`가 정상 탐지되는지 확인하는 대조군이다.
 
 ## 요청 로그 마스킹 검증
 
