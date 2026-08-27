@@ -96,3 +96,9 @@ def test_expanded_contexts_keep_negative_guards(
 ) -> None:
     found = sensitive_engine.detect(text, max_results_per_type=20)
     assert found.get(out_key, []) == []
+
+
+def test_value_before_otp_context_does_not_capture_nearby_date(sensitive_engine: PiiEngine) -> None:
+    text = "CTXLOG_HTTP_20260827 MFA code: 739201"
+    found = sensitive_engine.detect(text, max_results_per_type=20)
+    assert [item["matchString"] for item in found.get("OTP", [])] == ["739201"]

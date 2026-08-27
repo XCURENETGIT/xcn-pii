@@ -27,7 +27,7 @@ patterns:
     prefilter_any: [otp, totp, hotp, mfa, 2fa, one-time, one_time, "one time", single-use, verification, authentication, security, confirmation, login, sign-in, sign_in, "sign in", factor, 인증, 확인, 보안, 본인, 로그인, 접속, 다단계, 이중, 2차, 일회용]
     regex: >-
       (?<!\d)(?P<value>\d{4,8})(?!\d)
-      \s*(?:은|는|이|가|번은|번이|is\s+(?:your|the)|is)?\s*
+      \s*(?:(?:은|는|이|가|번은|번이)\s*|(?:is\s+(?:(?:your|the)\s+)?|equals?\s+))
       (?:
         \b(?:otp|totp|hotp|mfa|2fa)[\s_.-]*(?:code|number|pin|password|passcode)?\b
         |\b(?:one[\s_.-]*time|single[\s_.-]*use)[\s_.-]*(?:password|passcode|code|pin)\b

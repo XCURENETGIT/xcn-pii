@@ -35,6 +35,7 @@ class Case:
     text: str
     expected: dict[str, tuple[str, ...]] = field(default_factory=dict)
     absent: tuple[str, ...] = ()
+    exact: tuple[str, ...] = ()
 
 
 CASES = (
@@ -173,6 +174,13 @@ CASES = (
     Case("NC12", "공인 CIDR", "public subnet 8.8.8.0/24", absent=("INTERNAL_ACCESS",)),
     Case("NC13", "공개 endpoint URL", "endpoint=https://example.com/api", absent=("INTERNAL_ACCESS",)),
     Case("NC14", "socket 문서 설명", "socket documentation at /docs/socket", absent=("INTERNAL_ACCESS",)),
+    Case(
+        "NC15",
+        "OTP 라벨 앞 날짜 오탐 방지",
+        "CTXLOG_HTTP_20260827 MFA code: 739201",
+        {"OTP": ("739201",)},
+        exact=("OTP",),
+    ),
 )
 
 
@@ -259,6 +267,11 @@ def _evaluate(case: Case, actual: dict[str, list[dict[str, Any]]]) -> list[str]:
                 if start < 0 or end <= start or case.text[start:end] != expected:
                     errors.append(f"{out_type}: invalid offsets start={start} end={end} value={expected!r}")
                 break
+    for out_type in case.exact:
+        expected_values = list(case.expected.get(out_type) or ())
+        actual_values = [str(item.get("matchString") or "") for item in actual.get(out_type, [])]
+        if actual_values != expected_values:
+            errors.append(f"{out_type}: expected exact {expected_values!r}, actual={actual_values!r}")
     for out_type in case.absent:
         values = [str(item.get("matchString") or "") for item in actual.get(out_type, [])]
         if values:
