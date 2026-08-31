@@ -37,6 +37,32 @@ patterns:
 # Maximum captured match length used by the cursor scanner.
 max_match_len: 32
 
+# Non-standard separators are only considered next to an explicit phone label.
+# This bounded path prevents punctuation-heavy input from increasing the main
+# candidate regex workload. A repeated separator is required across all groups.
+alternate_separator:
+  enabled: true
+  separator_chars: "&/'`|"
+  max_window_chars: 40
+  max_label_value_gap: 8
+  labels:
+    - 전화번호
+    - 전화 번호
+    - 연락처
+    - 연락처 번호
+    - 휴대폰
+    - 휴대폰 번호
+    - 휴대전화
+    - 휴대전화 번호
+    - phone number
+    - mobile number
+    - contact number
+  formats:
+    - [2, 3, 4]
+    - [2, 4, 4]
+    - [3, 3, 4]
+    - [3, 4, 4]
+
 # Post-filter safeguards to reduce false positives.
 postfilter:
   enabled: true

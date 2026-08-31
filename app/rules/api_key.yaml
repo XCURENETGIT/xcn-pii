@@ -1,0 +1,129 @@
+# API keys are detected either by a well-known provider prefix or by an
+# explicit key/secret assignment whose value has enough entropy.
+enabled: true
+max_match_len: 512
+patterns:
+  - name: aws_access_key_id
+    detected_by: aws_access_key_id
+    prefilter_any: [AKIA, ASIA]
+    regex: '(?<![A-Z0-9])(?P<value>(?:AKIA|ASIA)[A-Z0-9]{16})(?![A-Z0-9])'
+  - name: github_legacy_token
+    detected_by: github_token
+    prefilter_any: [ghp_, gho_, ghu_, ghs_, ghr_]
+    regex: '(?<![A-Za-z0-9_])(?P<value>gh[pousr]_[A-Za-z0-9]{36,255})(?![A-Za-z0-9])'
+  - name: github_fine_grained_token
+    detected_by: github_token
+    prefilter_any: [github_pat_]
+    regex: '(?<![A-Za-z0-9_])(?P<value>github_pat_[A-Za-z0-9_]{22,255})(?![A-Za-z0-9_])'
+  - name: google_api_key
+    detected_by: google_api_key
+    prefilter_any: [AIza]
+    regex: '(?<![A-Za-z0-9_-])(?P<value>AIza[0-9A-Za-z_-]{35})(?![A-Za-z0-9_-])'
+  - name: slack_token
+    detected_by: slack_token
+    prefilter_any: [xoxb-, xoxa-, xoxp-, xoxr-, xoxs-]
+    regex: '(?<![A-Za-z0-9-])(?P<value>xox[baprs]-[A-Za-z0-9-]{20,255})(?![A-Za-z0-9-])'
+  - name: openai_api_key
+    detected_by: openai_api_key
+    prefilter_any: [sk-]
+    regex: '(?<![A-Za-z0-9_-])(?P<value>sk-(?:proj-)?[A-Za-z0-9_-]{20,255})(?![A-Za-z0-9_-])'
+  - name: stripe_secret_key
+    detected_by: stripe_secret_key
+    prefilter_any: [sk_live_, sk_test_, rk_live_, rk_test_]
+    regex: '(?<![A-Za-z0-9_])(?P<value>(?:sk|rk)_(?:live|test)_[A-Za-z0-9]{16,255})(?![A-Za-z0-9])'
+  - name: gitlab_personal_access_token
+    detected_by: gitlab_token
+    prefilter_any: [glpat-]
+    regex: '(?<![A-Za-z0-9_-])(?P<value>glpat-[A-Za-z0-9_-]{20,255})(?![A-Za-z0-9_-])'
+  - name: huggingface_access_token
+    detected_by: huggingface_token
+    prefilter_any: [hf_]
+    regex: '(?<![A-Za-z0-9_])(?P<value>hf_[A-Za-z0-9]{30,255})(?![A-Za-z0-9])'
+  - name: npm_access_token
+    detected_by: npm_token
+    prefilter_any: [npm_]
+    regex: '(?<![A-Za-z0-9_])(?P<value>npm_[A-Za-z0-9]{30,255})(?![A-Za-z0-9])'
+  - name: sendgrid_api_key
+    detected_by: sendgrid_api_key
+    prefilter_any: [SG.]
+    regex: '(?<![A-Za-z0-9_-])(?P<value>SG\.[A-Za-z0-9_-]{16,255}\.[A-Za-z0-9_-]{16,255})(?![A-Za-z0-9_-])'
+  - name: twilio_api_key
+    detected_by: twilio_api_key
+    prefilter_any: [SK]
+    regex: '(?<![A-Za-z0-9])(?P<value>SK[0-9a-fA-F]{32})(?![A-Za-z0-9])'
+  - name: docker_hub_pat
+    detected_by: docker_hub_pat
+    prefilter_any: [dckr_pat_]
+    regex: '(?<![A-Za-z0-9_])(?P<value>dckr_pat_[A-Za-z0-9_-]{20,255})(?![A-Za-z0-9_-])'
+  - name: shopify_access_token
+    detected_by: shopify_access_token
+    prefilter_any: [shpat_]
+    regex: '(?<![A-Za-z0-9_])(?P<value>shpat_[0-9a-fA-F]{32})(?![A-Za-z0-9])'
+  - name: digitalocean_pat
+    detected_by: digitalocean_pat
+    prefilter_any: [dop_v1_]
+    # Production PATs use a fixed provider prefix.  Accept 60-64 hex chars so
+    # redacted/synthetic PoC fixtures remain detectable without a generic scan.
+    regex: '(?<![A-Za-z0-9_])(?P<value>dop_v1_[0-9a-fA-F]{60,64})(?![A-Za-z0-9])'
+  - name: mailgun_labeled_key
+    detected_by: mailgun_api_key
+    prefilter_any: [MAILGUN_KEY, MAILGUN_API_KEY]
+    regex: '(?<![A-Za-z0-9])(?:MAILGUN_(?:API_)?KEY)\s*[:=]\s*["'']?(?P<value>key-[A-Za-z0-9]{24,64})["'']?'
+    flags:
+      ignorecase: true
+  - name: datadog_labeled_key
+    detected_by: datadog_api_key
+    prefilter_any: [DD_API_KEY, DATADOG_API_KEY]
+    regex: '(?<![A-Za-z0-9])(?:DD|DATADOG)_API_KEY\s*[:=]\s*["'']?(?P<value>[0-9a-fA-F]{32})["'']?'
+    flags:
+      ignorecase: true
+  - name: generic_api_key_assignment
+    detected_by: generic_api_key
+    prefilter_any: [api, aip, key, secret, subscription, consumer, signing, ocp-apim, ocp_apim, 애플리케이션, 응용, 앱, 접근, 액세스, 비밀, 서비스, 구독, 소비자, 서명, 클라이언트, 웹훅, 시크릿]
+    regex: >-
+      (?<![A-Za-z0-9])["'`*_~]{0,3}
+      (?:
+        (?P<strong_label>
+          \b(?:x[\s_.-]*)?api[\s_.-]*key\b
+          |\baip[\s_.-]*key\b
+          |\b(?:ocp[\s_.-]*apim[\s_.-]*subscription[\s_.-]*key)\b
+          |API\s*(?:키|Key)
+        )
+        ["'`*_~]{0,3}(?![A-Za-z0-9])
+        (?:
+          [ \t\r\n]{1,8}
+          |\s*(?:(?:은|는|이|가)\s*|(?:is|equals?|value(?:\s+is)?)\s*|[:=|]\s*|(?:=>|->)\s*)
+        )
+        |
+        (?:
+          \b(?:access|secret|private|application|app|service|subscription|consumer|signing)[\s_.-]*key\b
+          |\b(?:api|application|app|client|consumer|webhook|signing)[\s_.-]*secret\b
+          |(?:애플리케이션|응용\s*프로그램|앱|접근|액세스|비밀|서비스|구독|소비자|서명)\s*(?:키|Key)
+          |(?:클라이언트|앱|웹훅|서명)\s*(?:시크릿|비밀)
+        )
+        ["'`*_~]{0,3}(?![A-Za-z0-9])\s*
+        (?:(?:은|는|이|가)\s*|(?:is|equals?|value(?:\s+is)?)\s*|[:=]\s*|=>\s*)
+      )
+      ["'`*_~]{0,3}(?P<value>[A-Za-z0-9_./+~=-]{16,512})["'`*_~]{0,3}
+    flags:
+      ignorecase: true
+      verbose: true
+    min_length: 16
+    min_entropy: 3.0
+    min_character_classes: 2
+  - name: generic_api_key_value_first
+    detected_by: generic_api_key_context_after
+    prefilter_any: [api, key, secret, subscription, consumer, signing]
+    regex: >-
+      (?<![A-Za-z0-9_./+~=-])(?P<value>[A-Za-z0-9_./+~=-]{16,512})(?![A-Za-z0-9_./+~=-])
+      \s+(?:is|equals?)\s+(?:the\s+|your\s+)?
+      (?:
+        \b(?:api|access|secret|application|app|service|subscription|consumer|signing)[\s_.-]*key\b
+        |\b(?:client|consumer|webhook|signing)[\s_.-]*secret\b
+      )
+    flags:
+      ignorecase: true
+      verbose: true
+    min_length: 16
+    min_entropy: 3.0
+    min_character_classes: 2

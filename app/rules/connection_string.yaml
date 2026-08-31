@@ -1,0 +1,26 @@
+# Secret-bearing data source and service connection strings. Scheme/assignment
+# markers gate every regex, and a structural validator confirms credentials.
+enabled: true
+max_match_len: 4096
+prefilter_any: ["://", "jdbc:", password=, passwd=, pwd=, accountkey=, sharedaccesssignature=]
+patterns:
+  - name: credential_uri
+    detected_by: credential_uri
+    prefilter_any: [postgres://, postgresql://, mysql://, mariadb://, mongodb://, "mongodb+srv://", redis://, rediss://, amqp://, amqps://]
+    regex: '(?P<value>(?:postgres(?:ql)?|mysql|mariadb|mongodb(?:\+srv)?|rediss?|amqps?)://[^\s/@:<>"]{0,256}:[^\s/@<>"]{1,512}@[A-Za-z0-9._\-\[\]:]+(?:/[^\s<>"'']{0,2048})?)'
+    trim_trailing: '.,;)]}'
+    validator: credential_connection_string
+  - name: jdbc_credential_url
+    detected_by: jdbc_credential_url
+    prefilter_any: ["jdbc:"]
+    regex: '(?P<value>jdbc:[A-Za-z0-9:+.-]+://[^\s<>"'']{1,4096})'
+    trim_trailing: '.,;)]}'
+    validator: credential_connection_string
+  - name: key_value_connection_string
+    detected_by: key_value_connection_string
+    prefilter_any: [password=, passwd=, pwd=, accountkey=, sharedaccesssignature=]
+    regex: '(?P<value>(?:Server|Data Source|Host|Endpoint|BlobEndpoint|QueueEndpoint|TableEndpoint|FileEndpoint|DefaultEndpointsProtocol)\s*=\s*[^\r\n]{1,4096})'
+    flags:
+      ignorecase: true
+    trim_trailing: '.,)]}'
+    validator: credential_connection_string

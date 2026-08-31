@@ -1,0 +1,109 @@
+# Authentication tokens: JWT, Authorization headers, and explicitly labeled
+# opaque access/refresh tokens.
+enabled: true
+max_match_len: 4096
+patterns:
+  - name: jwt
+    detected_by: jwt
+    prefilter_any: [eyJ]
+    regex: '(?<![A-Za-z0-9_-])(?P<value>eyJ[A-Za-z0-9_-]{5,}\.eyJ[A-Za-z0-9_-]{5,}\.[A-Za-z0-9_-]{8,})(?![A-Za-z0-9_-])'
+  - name: bearer_token
+    detected_by: bearer_token
+    prefilter_any: [bearer]
+    regex: '(?:(?:proxy[\s_-]*)?authorization\s*[:=]\s*)?\bbearer\s+(?P<value>[A-Za-z0-9._~+/=-]{16,4096})'
+    flags:
+      ignorecase: true
+    min_length: 16
+  - name: basic_auth_token
+    detected_by: basic_auth_token
+    prefilter_any: [authorization, proxy-authorization, proxy_authorization]
+    regex: '\b(?:proxy[\s_-]*)?authorization\s*[:=]\s*basic\s+(?P<value>[A-Za-z0-9+/]{8,4096}={0,2})'
+    flags:
+      ignorecase: true
+  - name: authorization_token_scheme
+    detected_by: authorization_token_scheme
+    prefilter_any: [authorization, proxy-authorization, proxy_authorization]
+    regex: '\b(?:proxy[\s_-]*)?authorization\s*[:=]\s*token\s+(?P<value>[A-Za-z0-9._~+/=-]{16,4096})'
+    flags:
+      ignorecase: true
+    min_length: 16
+    min_entropy: 2.5
+  - name: telegram_bot_token
+    detected_by: telegram_bot_token
+    prefilter_any: [TELEGRAM_BOT_TOKEN]
+    regex: '(?<![A-Za-z0-9])TELEGRAM_BOT_TOKEN\s*[:=]\s*["'']?(?P<value>\d{8,12}:[A-Za-z0-9_-]{30,64})["'']?'
+    flags:
+      ignorecase: true
+  - name: hashicorp_vault_token
+    detected_by: hashicorp_vault_token
+    prefilter_any: [VAULT_TOKEN, hvs., hvb., hvr.]
+    regex: '(?:(?<![A-Za-z0-9])VAULT_TOKEN\s*[:=]\s*["'']?)?(?<![A-Za-z0-9])(?P<value>hv[bsr]\.[A-Za-z0-9_-]{20,255})(?![A-Za-z0-9_-])'
+    flags:
+      ignorecase: true
+  - name: discord_bot_token
+    detected_by: discord_bot_token
+    prefilter_any: [DISCORD_TOKEN]
+    regex: '(?<![A-Za-z0-9])DISCORD_TOKEN\s*[:=]\s*["'']?(?P<value>[A-Za-z0-9_-]{17,32}\.[A-Za-z0-9_-]{6,8}\.[A-Za-z0-9_-]{20,64})["'']?'
+    flags:
+      ignorecase: true
+  - name: firebase_fcm_server_key
+    detected_by: firebase_fcm_server_key
+    prefilter_any: [FCM_SERVER_KEY, FIREBASE_SERVER_KEY]
+    regex: '(?<![A-Za-z0-9])(?:FCM|FIREBASE)_SERVER_KEY\s*[:=]\s*["'']?(?P<value>AAAA[A-Za-z0-9_-]{4,64}:APA91[A-Za-z0-9_-]{20,255})["'']?'
+    flags:
+      ignorecase: true
+  - name: atlassian_api_token
+    detected_by: atlassian_api_token
+    prefilter_any: [ATLASSIAN_API_TOKEN, ATATT3xFfGF0]
+    regex: '(?:(?<![A-Za-z0-9])ATLASSIAN_API_TOKEN\s*[:=]\s*["'']?)?(?<![A-Za-z0-9])(?P<value>ATATT3xFfGF0[A-Za-z0-9_-]{20,255})(?![A-Za-z0-9_-])'
+    flags:
+      ignorecase: true
+  - name: labeled_auth_token
+    detected_by: labeled_auth_token
+    prefilter_any: [token, jwt, sessionid, session_id, access, refresh, auth, identity, session, security, oauth, sso, csrf, xsrf, 인증, 인가, 접근, 액세스, 갱신, 리프레시, 세션, 보안, 토큰]
+    regex: >-
+      (?<![A-Za-z0-9])["']?
+      (?:
+        \b(?:x[\s_.-]*)?(?:access|refresh|auth|authentication|authorization|identity|id|session|security|oauth|sso|csrf|xsrf|api)[\s_.-]*token\b
+        |\b(?:token|jwt|sessionid|session[\s_.-]*id)\b
+        |(?:인증|인가|접근|액세스|갱신|리프레시|세션|보안|OAuth|SSO|CSRF|API)\s*토큰
+        |(?:인증|세션)\s*ID
+      )
+      ["']?(?![A-Za-z0-9])\s*
+      (?:(?:은|는|이|가)\s*|(?:is|equals?|value(?:\s+is)?)\s*|[:=]\s*|=>\s*)
+      ["']?(?P<value>[A-Za-z0-9._~+/=-]{16,4096})["']?
+    flags:
+      ignorecase: true
+      verbose: true
+    min_length: 16
+    min_entropy: 2.5
+  - name: strong_auth_token_flexible_separator
+    detected_by: strong_auth_token_flexible_separator
+    prefilter_any: [auth_token, access_token, refresh_token, authorization_token, x-auth-token, x_auth_token, session_token, csrf_token, 인증토큰, 액세스토큰, 세션토큰]
+    regex: >-
+      (?<![A-Za-z0-9])["'`*_~]{0,3}
+      (?:AUTH[\s_.-]*TOKEN|ACCESS[\s_.-]*TOKEN|REFRESH[\s_.-]*TOKEN|AUTHORIZATION[\s_.-]*TOKEN|X[\s_.-]*AUTH[\s_.-]*TOKEN|SESSION[\s_.-]*TOKEN|CSRF[\s_.-]*TOKEN|인증\s*토큰|액세스\s*토큰|세션\s*토큰)
+      ["'`*_~]{0,3}(?![A-Za-z0-9])
+      (?:[ \t\r\n]{1,8}|\s*(?:[:=|]|=>|->)\s*)
+      ["'`*_~]{0,3}(?P<value>[A-Za-z0-9._~+/=-]{16,4096})["'`*_~]{0,3}
+    flags:
+      ignorecase: true
+      verbose: true
+    min_length: 16
+    min_entropy: 2.5
+    min_character_classes: 2
+  - name: labeled_auth_token_value_first
+    detected_by: auth_token_context_after
+    prefilter_any: [token, jwt, sessionid, session_id, access, refresh, auth, identity, session, security, oauth, sso, csrf, xsrf]
+    regex: >-
+      (?<![A-Za-z0-9._~+/=-])(?P<value>[A-Za-z0-9._~+/=-]{16,4096})(?![A-Za-z0-9._~+/=-])
+      \s+(?:is|equals?)\s+(?:the\s+|your\s+)?
+      (?:
+        \b(?:access|refresh|auth|authentication|authorization|identity|id|session|security|oauth|sso|csrf|xsrf)[\s_.-]*token\b
+        |\b(?:token|jwt|sessionid|session[\s_.-]*id)\b
+      )
+    flags:
+      ignorecase: true
+      verbose: true
+    min_length: 16
+    min_entropy: 2.5

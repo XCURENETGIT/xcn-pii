@@ -21,9 +21,23 @@ steps:
   - brn
   - bn
   - an
+  - otp
+  - api_key
+  - auth_token
+  - password
+  - internal_access
+  - private_key
+  - cloud_credential
+  - connection_string
+  - signed_url
+  - mfa_secret
+  - recovery_code
+  - session_cookie
   - post_mn
   - post_bn
   - post_context
+  - numeric_separator
+  - evasion_recovery
 # Rule document file mapping used by the engine loader.
 rule_files:
   sn: sn.yaml
@@ -39,6 +53,18 @@ rule_files:
   brn: brn.yaml
   bn: bn.yaml
   an: an.yaml
+  otp: otp.yaml
+  api_key: api_key.yaml
+  auth_token: auth_token.yaml
+  password: password.yaml
+  internal_access: internal_access.yaml
+  private_key: private_key.yaml
+  cloud_credential: cloud_credential.yaml
+  connection_string: connection_string.yaml
+  signed_url: signed_url.yaml
+  mfa_secret: mfa_secret.yaml
+  recovery_code: recovery_code.yaml
+  session_cookie: session_cookie.yaml
   cn: cn.yaml
   cpn: cpn.yaml
   crn: crn.yaml
@@ -46,6 +72,8 @@ rule_files:
   mcn: mcn.yaml
   EML: eml.yaml
   context: context.yaml
+  numeric_separator: numeric_separator.yaml
+  evasion_recovery: evasion_recovery.yaml
 # Common engine defaults.
 defaults:
   max_results_per_type: 500

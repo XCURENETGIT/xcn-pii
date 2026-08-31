@@ -23,12 +23,18 @@ def _step_name(step: Detector) -> str:
         return "sn.regex"
     if isinstance(step, RegexDetector):
         return f"{step.out_key.lower()}.regex"
+    if isinstance(step, SensitiveValueDetector):
+        return f"{step.out_key.lower()}.sensitive"
     if isinstance(step, DNDetector):
         return "dn.hyperscan"
     if isinstance(step, MNPostFilter):
         return "mn.postfilter"
     if isinstance(step, BNPostFilter):
         return "bn.postfilter"
+    if isinstance(step, NumericAlternateSeparatorDetector):
+        return "numeric_alternate_separator"
+    if isinstance(step, EvasionRecoveryDetector):
+        return "evasion_recovery"
     if isinstance(step, ContextualLLMPostFilter):
         return "context.embed"
     if isinstance(step, ContextualPostFilter):

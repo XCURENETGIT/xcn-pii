@@ -25,6 +25,11 @@
   - `VN_PN`
   - `VN_TIN`
   - `VN_SI`
+  - `OTP`
+  - `API_KEY`
+  - `AUTH_TOKEN`
+  - `PASSWORD`
+  - `INTERNAL_ACCESS`
 
 탐지 타입 요약:
 
@@ -46,6 +51,11 @@
 | `VN_PN` | 베트남 여권번호 | `B12345678` |
 | `VN_TIN` | 베트남 세금번호/납세자번호 | `0312345678`, `0312345678-001` |
 | `VN_SI` | 베트남 사회보험/건강보험 코드 | `0123456789` |
+| `OTP` | OTP/인증번호 | `인증번호: 482913` |
+| `API_KEY` | 공급자 전용 또는 라벨이 있는 API 키 | `API_KEY=...` |
+| `AUTH_TOKEN` | Bearer/Basic/JWT 및 인증 토큰 | `Authorization: Bearer ...` |
+| `PASSWORD` | 명시적인 비밀번호 라벨의 값 | `password="..."` |
+| `INTERNAL_ACCESS` | 사설 IP, 내부 호스트 및 내부 URL | `10.20.30.40`, `db01.internal:5432` |
 
 ## Base Endpoints
 
@@ -398,6 +408,11 @@ message DetectResponse {
 | `VN_PN_CNT`, `VN_PN` | `vn_pn_cnt`, `vn_pn` |
 | `VN_TIN_CNT`, `VN_TIN` | `vn_tin_cnt`, `vn_tin` |
 | `VN_SI_CNT`, `VN_SI` | `vn_si_cnt`, `vn_si` |
+| `OTP_CNT`, `OTP` | `otp_cnt`, `otp` |
+| `API_KEY_CNT`, `API_KEY` | `api_key_cnt`, `api_key` |
+| `AUTH_TOKEN_CNT`, `AUTH_TOKEN` | `auth_token_cnt`, `auth_token` |
+| `PASSWORD_CNT`, `PASSWORD` | `password_cnt`, `password` |
+| `INTERNAL_ACCESS_CNT`, `INTERNAL_ACCESS` | `internal_access_cnt`, `internal_access` |
 
 gRPC example with `grpcurl`:
 

@@ -1,0 +1,24 @@
+# Known authentication/session cookie names only; general preference and
+# analytics cookies are intentionally excluded.
+enabled: true
+max_match_len: 4096
+prefilter_any: ["cookie:", "set-cookie:", jsessionid, phpsessid, asp.net_sessionid, connect.sid, laravel_session, ci_session, rack.session, play_session]
+patterns:
+  - name: framework_session_cookie
+    detected_by: framework_session_cookie
+    prefilter_any: [jsessionid, phpsessid, asp.net_sessionid, connect.sid, laravel_session, ci_session, rack.session, play_session]
+    regex: '(?<![A-Za-z0-9_.-])["''`*_~]{0,3}(?:JSESSIONID|PHPSESSID|ASP\.NET_SessionId|connect\.sid|laravel_session|ci_session|rack\.session|PLAY_SESSION)["''`*_~]{0,3}(?![A-Za-z0-9])(?:[ \t\r\n]{1,8}|\s*(?:[=|]|=>|->)\s*)["''`*_~]{0,3}(?P<value>[A-Za-z0-9%._~+/=-]{8,4096})["''`*_~]{0,3}'
+    flags:
+      ignorecase: true
+    min_entropy: 2.5
+    min_character_classes: 2
+    validator: secret_value
+  - name: generic_auth_cookie_header
+    detected_by: auth_cookie_header
+    prefilter_any: ["cookie:", "set-cookie:"]
+    regex: '^(?:Cookie|Set-Cookie)\s*:[^\r\n]{0,2048}?(?:sessionid|session_id|auth_token|access_token|refresh_token|id_token|remember_token|(?:__Secure-|__Host-)?(?:next-auth|authjs)\.session-token)\s*=\s*["'']?(?P<value>[A-Za-z0-9%._~+/=-]{8,4096})["'']?'
+    flags:
+      ignorecase: true
+      multiline: true
+    min_entropy: 2.5
+    validator: secret_value

@@ -95,6 +95,8 @@ def _log_timing(stage: str, req_id: str | None = None, **fields: Any) -> None:
 def _summarize_counts(out: Dict[str, List[dict]]) -> Dict[str, int]:
     keys = [
         "SN", "FN", "SSN", "DN", "PN", "MN", "BRN", "BN", "AN", "CN", "CPN", "CRN", "IMEI", "MCN", "EML",
+        "OTP", "API_KEY", "AUTH_TOKEN", "PASSWORD", "INTERNAL_ACCESS",
+        "PRIVATE_KEY", "CLOUD_CREDENTIAL", "CONNECTION_STRING", "SIGNED_URL", "MFA_SECRET", "RECOVERY_CODE", "SESSION_COOKIE",
         "SN_CTX_REJECTED", "SSN_CTX_REJECTED", "DN_CTX_REJECTED",
         "PN_CTX_REJECTED", "MN_CTX_REJECTED", "BRN_CTX_REJECTED", "BN_CTX_REJECTED", "AN_CTX_REJECTED", "CN_CTX_REJECTED",
         "CPN_CTX_REJECTED", "CRN_CTX_REJECTED", "IMEI_CTX_REJECTED", "MCN_CTX_REJECTED", "EML_CTX_REJECTED",

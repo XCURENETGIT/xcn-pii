@@ -1,0 +1,25 @@
+# Private signing/decryption material. Exact armor headers are used as a
+# document-level prefilter so ordinary text never reaches the multiline regexes.
+enabled: true
+max_match_len: 32768
+prefilter_any: ["-----begin"]
+patterns:
+  - name: pem_private_key
+    detected_by: pem_private_key
+    prefilter_any: ["-----begin private key-----", "-----begin encrypted private key-----", "-----begin rsa private key-----", "-----begin ec private key-----", "-----begin dsa private key-----", "-----begin openssh private key-----"]
+    regex: '(?P<value>-----BEGIN (?P<label>(?:RSA |EC |DSA |OPENSSH |ENCRYPTED )?PRIVATE KEY)-----\r?\n[A-Za-z0-9+/=\r\n]{40,32768}?\r?\n-----END (?P=label)-----)'
+    validator: pem_private_key
+  - name: escaped_pem_private_key
+    detected_by: escaped_pem_private_key
+    prefilter_any: ["-----begin private key-----\\n", "-----begin encrypted private key-----\\n", "-----begin rsa private key-----\\n", "-----begin ec private key-----\\n", "-----begin dsa private key-----\\n", "-----begin openssh private key-----\\n"]
+    regex: '(?P<value>-----BEGIN (?P<label>(?:RSA |EC |DSA |OPENSSH |ENCRYPTED )?PRIVATE KEY)-----\\n(?:[A-Za-z0-9+/=]{1,128}\\n){1,256}-----END (?P=label)-----)'
+    validator: pem_private_key
+  - name: poc_truncated_pem_private_key
+    detected_by: pem_private_key_armor
+    prefilter_any: ["-----begin private key-----", "-----begin rsa private key-----", "-----begin openssh private key-----"]
+    regex: '(?P<value>-----BEGIN (?P<label>(?:RSA |OPENSSH )?PRIVATE KEY)-----(?:\r?\n|\\n)[A-Za-z0-9+/=]{8,32768}(?:\r?\n|\\n)-----END (?P=label)-----)'
+  - name: pgp_private_key
+    detected_by: pgp_private_key
+    prefilter_any: ["-----begin pgp private key block-----"]
+    regex: '(?P<value>-----BEGIN PGP PRIVATE KEY BLOCK-----[\s\S]{80,32768}?-----END PGP PRIVATE KEY BLOCK-----)'
+    validator: pem_private_key

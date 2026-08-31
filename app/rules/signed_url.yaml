@@ -1,0 +1,13 @@
+# Public URLs carrying delegating signatures or webhook credentials.
+enabled: true
+max_match_len: 8192
+prefilter_any: [signature=, sig=, hooks.slack.com, /webhooks/]
+patterns:
+  - name: signed_or_webhook_url
+    detected_by: signed_url
+    prefilter_any: [x-amz-signature=, x-goog-signature=, hooks.slack.com/services/, discord.com/api/webhooks/, discordapp.com/api/webhooks/, blob.core.windows.net, file.core.windows.net, dfs.core.windows.net]
+    regex: '(?P<value>https?://[^\s<>"'']{16,8192})'
+    flags:
+      ignorecase: true
+    trim_trailing: '.,;)]}'
+    validator: signed_url
