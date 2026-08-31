@@ -2,7 +2,7 @@
 
 ## 목적
 
-기존 개인정보 탐지 기능과 별도로 요청 본문에 포함된 OTP, API Key, 인증 토큰, 비밀번호, 내부 접속정보를 탐지한다. 이 기능은 `feature/secret-detection` 브랜치에서 개발하며 기존 `main` 제품 유지보수 작업과 분리한다.
+기존 개인정보 탐지 기능과 별도로 요청 본문에 포함된 OTP, API Key, 인증 토큰, 비밀번호, 내부 접속정보와 고위험 시크릿을 탐지한다. 이 기능은 `feature/secret-detection` 브랜치에서 개발하며 기존 `main` 제품 유지보수 작업과 분리한다.
 
 ## 탐지 타입
 
@@ -13,6 +13,13 @@
 | `AUTH_TOKEN` | JWT, Bearer, Basic, access/refresh/session/CSRF token | 토큰 구조 또는 인증 헤더/설정 라벨 |
 | `PASSWORD` | 비밀번호, password/passwd/pwd/passphrase | JSON/YAML/XML/CLI 및 명시적인 문장 라벨에 할당된 값 |
 | `INTERNAL_ACCESS` | 사설 IP/CIDR, 내부 호스트·URL·socket | 사설·loopback·link-local 네트워크 또는 내부용 구조 |
+| `PRIVATE_KEY` | PEM/OpenSSH/PGP 개인키, JSON 이스케이프 개인키 | 정확한 armor header/footer 및 본문 구조 검증 |
+| `CLOUD_CREDENTIAL` | AWS secret/session credential, Azure Storage account key | 공급자 고정 라벨과 길이·엔트로피 검증 |
+| `CONNECTION_STRING` | 계정·비밀번호가 포함된 DB/JDBC/서비스 연결 문자열 | URL userinfo 또는 key/value 자격증명 구조 검증 |
+| `SIGNED_URL` | AWS/GCS 서명 URL, Azure SAS, Slack/Discord webhook | 공급자별 hostname/path/query 조합 검증 |
+| `MFA_SECRET` | HOTP/TOTP 공유 시드, `otpauth` secret | 명시 라벨 또는 URI와 Base32 구조 검증 |
+| `RECOVERY_CODE` | MFA·계정 복구/백업 코드 | 명시적인 recovery/backup code 라벨 필수 |
+| `SESSION_COOKIE` | 알려진 인증·세션 쿠키 값 | 제한된 쿠키명과 길이·엔트로피 검증 |
 
 예시:
 
@@ -54,6 +61,13 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMjM0In0.signature123
 - `app/rules/auth_token.yaml`
 - `app/rules/password.yaml`
 - `app/rules/internal_access.yaml`
+- `app/rules/private_key.yaml`
+- `app/rules/cloud_credential.yaml`
+- `app/rules/connection_string.yaml`
+- `app/rules/signed_url.yaml`
+- `app/rules/mfa_secret.yaml`
+- `app/rules/recovery_code.yaml`
+- `app/rules/session_cookie.yaml`
 
 각 정규식은 가능하면 실제 기밀 값만 `(?P<value>...)` 그룹으로 캡처해야 한다. 다음 선택 조건을 규칙별로 사용할 수 있다.
 
@@ -64,6 +78,23 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMjM0In0.signature123
 - `flags.verbose`: 긴 문맥 정규식을 가독성 있게 여러 줄로 작성
 - `prefilter_any`: 지정한 문맥 또는 공급자 prefix가 원문에 하나도 없으면 해당 정규식 실행 생략
 - `trim_trailing`
+
+1차 고위험 시크릿 규칙은 추가로 다음 성능 조건을 지킨다.
+
+- 모든 타입과 모든 패턴에 `prefilter_any`를 둔다.
+- `.*` 형태의 무제한 wildcard를 사용하지 않고 입력 길이를 정규식 자체에서도 제한한다.
+- 신규 7종 전체는 `=`, `:`, `#`, PEM header가 없는 일반 문서에서 공통 syntax gate로 즉시 종료한다.
+- Base64, URL query, connection credential 같은 구조 검증은 정규식 후보가 나온 경우에만 실행한다.
+- detector 간 소문자 변환 결과를 요청 단위로 공유해 긴 입력을 반복 변환하지 않는다.
+
+성능 회귀 검증:
+
+```powershell
+$env:PYTHONPATH='.'
+python scripts/benchmark_sensitive_rules.py --chars 1000000 --repeats 7
+```
+
+기본 실패 기준은 동일 실행 환경에서 기존 5종과 비교했을 때 100만 자 일반 입력의 신규 7종 추가 비용 10% 초과 또는 설정·로그형 입력의 추가 비용 25% 초과이다. 절대 시간은 장비 부하의 영향을 크게 받으므로 기본값에서는 보고만 하며, 배포 서버 기준이 정해지면 `--max-detect-median-ms`, `--max-redact-median-ms`로 별도 제한한다.
 
 규칙을 바꾼 뒤에는 최소한 다음 테스트를 실행한다.
 

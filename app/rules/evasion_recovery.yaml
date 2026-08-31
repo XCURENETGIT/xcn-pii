@@ -1,0 +1,4 @@
+# Bounded recovery for explicit/high-confidence obfuscation forms.
+enabled: true
+max_transform_candidates: 32
+max_split_span: 180

@@ -113,6 +113,7 @@ MANUAL_FAMILY_CASES = (
     ("GK02", "API_KEY", "Ocp-Apim-Subscription-Key: Az9xY8wV7uT6sR5qP4nM3kL2", "Az9xY8wV7uT6sR5qP4nM3kL2", "generic_api_key"),
     ("GK03", "API_KEY", "웹훅 시크릿: whsec_Z9y8X7w6V5u4T3s2R1q0", "whsec_Z9y8X7w6V5u4T3s2R1q0", "generic_api_key"),
     ("GK04", "API_KEY", "SvcK3y-2026-AbCdEfGh is the service key", "SvcK3y-2026-AbCdEfGh", "generic_api_key_context_after"),
+    ("GK05", "API_KEY", "API_KEY abcDEF1234567890xyz", "abcDEF1234567890xyz", "generic_api_key"),
     ("AT01", "AUTH_TOKEN", "Authorization: Bearer AbCdEf0123456789-token.value", "AbCdEf0123456789-token.value", "bearer_token"),
     ("AT02", "AUTH_TOKEN", "Authorization: Basic dXNlcjpTM2NyZXQh", "dXNlcjpTM2NyZXQh", "basic_auth_token"),
     ("AT03", "AUTH_TOKEN", "Authorization: Token Tok3n-Header-2026.AbCd", "Tok3n-Header-2026.AbCd", "authorization_token_scheme"),

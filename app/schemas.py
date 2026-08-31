@@ -76,6 +76,20 @@ class PiiData(BaseModel):
     PASSWORD: Optional[List[MatchItem]] = None
     INTERNAL_ACCESS_CNT: Optional[int] = None
     INTERNAL_ACCESS: Optional[List[MatchItem]] = None
+    PRIVATE_KEY_CNT: Optional[int] = None
+    PRIVATE_KEY: Optional[List[MatchItem]] = None
+    CLOUD_CREDENTIAL_CNT: Optional[int] = None
+    CLOUD_CREDENTIAL: Optional[List[MatchItem]] = None
+    CONNECTION_STRING_CNT: Optional[int] = None
+    CONNECTION_STRING: Optional[List[MatchItem]] = None
+    SIGNED_URL_CNT: Optional[int] = None
+    SIGNED_URL: Optional[List[MatchItem]] = None
+    MFA_SECRET_CNT: Optional[int] = None
+    MFA_SECRET: Optional[List[MatchItem]] = None
+    RECOVERY_CODE_CNT: Optional[int] = None
+    RECOVERY_CODE: Optional[List[MatchItem]] = None
+    SESSION_COOKIE_CNT: Optional[int] = None
+    SESSION_COOKIE: Optional[List[MatchItem]] = None
 
 class PiiMeta(BaseModel):
     ruleset_name: str

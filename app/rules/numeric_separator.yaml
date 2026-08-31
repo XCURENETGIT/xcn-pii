@@ -1,0 +1,73 @@
+# PoC recall-first scanner for digit-only identifiers with non-standard separators.
+enabled: true
+separator_chars: "&/.'`|"
+min_digits: 9
+max_digits: 16
+label_window_chars: 48
+
+# The nearest label resolves ambiguous lengths/types before global overlap priority.
+labels:
+  SN:
+    - 주민등록번호
+    - 주민 번호
+    - resident registration number
+  FN:
+    - 외국인등록번호
+    - 외국인 번호
+    - alien registration number
+  SSN:
+    - social security number
+    - ssn
+  DN:
+    - 운전면허번호
+    - 면허번호
+    - driver licence number
+    - driver license number
+  MN:
+    - 전화번호
+    - 전화 번호
+    - 연락처
+    - 휴대폰
+    - 휴대전화
+    - phone number
+    - mobile number
+  BRN:
+    - 사업자등록번호
+    - 사업자 번호
+    - business registration number
+    - brn
+  BN:
+    - 계좌번호
+    - 계좌 번호
+    - 입금계좌
+    - 출금계좌
+    - 환불계좌
+    - 은행 계좌
+    - bank account
+    - account number
+  CN:
+    - 카드번호
+    - 카드 번호
+    - 신용카드
+    - card number
+    - credit card
+  CPN:
+    - 법인등록번호
+    - 법인 번호
+    - corporate registration number
+  IMEI:
+    - imei
+    - 단말기 식별번호
+  VN_MN:
+    - so dien thoai
+    - số điện thoại
+  VN_CCCD:
+    - cccd
+    - căn cước công dân
+  VN_TIN:
+    - ma so thue
+    - mã số thuế
+  VN_SI:
+    - ma so bhxh
+    - mã số bhxh
+    - social insurance number

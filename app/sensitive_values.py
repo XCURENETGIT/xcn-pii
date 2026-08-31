@@ -1,14 +1,18 @@
 from __future__ import annotations
 
+import base64
+import binascii
 import ipaddress
 import math
 import os
 import re
 import threading
+import unicodedata
 from collections import Counter
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Dict, Iterable, List, Pattern, Tuple
-from urllib.parse import urlsplit
+from urllib.parse import parse_qs, urlsplit
 
 import yaml
 
@@ -19,7 +23,257 @@ SENSITIVE_RULE_TYPES: Tuple[Tuple[str, str], ...] = (
     ("AUTH_TOKEN", "auth_token.yaml"),
     ("PASSWORD", "password.yaml"),
     ("INTERNAL_ACCESS", "internal_access.yaml"),
+    ("PRIVATE_KEY", "private_key.yaml"),
+    ("CLOUD_CREDENTIAL", "cloud_credential.yaml"),
+    ("CONNECTION_STRING", "connection_string.yaml"),
+    ("SIGNED_URL", "signed_url.yaml"),
+    ("MFA_SECRET", "mfa_secret.yaml"),
+    ("RECOVERY_CODE", "recovery_code.yaml"),
+    ("SESSION_COOKIE", "session_cookie.yaml"),
 )
+
+PHASE1_SENSITIVE_TYPES = frozenset(
+    {
+        "PRIVATE_KEY",
+        "CLOUD_CREDENTIAL",
+        "CONNECTION_STRING",
+        "SIGNED_URL",
+        "MFA_SECRET",
+        "RECOVERY_CODE",
+        "SESSION_COOKIE",
+    }
+)
+_PHASE1_STRONG_LABEL_HINTS = (
+    "aws_",
+    "azure_storage",
+    "accountkey",
+    "sharedaccesskey",
+    "totp_secret",
+    "totp_seed",
+    "hotp_secret",
+    "hotp_seed",
+    "mfa_secret",
+    "mfa_seed",
+    "2fa_secret",
+    "2fa_seed",
+    "authenticator_secret",
+    "authenticator_seed",
+    "otp_secret",
+    "otp_seed",
+    "recovery_code",
+    "recovery code",
+    "backup_code",
+    "backup code",
+    "복구 코드",
+    "백업 코드",
+    "jsessionid",
+    "phpsessid",
+    "asp.net_sessionid",
+    "connect.sid",
+    "laravel_session",
+    "ci_session",
+    "rack.session",
+    "play_session",
+)
+_PHASE1_STRONG_LABEL_ROOT_HINTS = (
+    "_",
+    "code",
+    "secret",
+    "seed",
+    "key",
+    "sess",
+    "복구",
+    "백업",
+)
+
+
+_INVISIBLE_FORMAT_CHARS = frozenset(
+    {
+        "\u00ad",  # soft hyphen
+        "\u034f",  # combining grapheme joiner
+        "\u061c",  # Arabic letter mark
+        "\u180e",  # Mongolian vowel separator
+        "\u200b",  # zero-width space
+        "\u200c",  # zero-width non-joiner
+        "\u200d",  # zero-width joiner
+        "\u200e",  # left-to-right mark
+        "\u200f",  # right-to-left mark
+        "\u2060",  # word joiner
+        "\ufeff",  # zero-width no-break space/BOM
+    }
+)
+_PUNCTUATION_FOLD = str.maketrans(
+    {
+        "\u2010": "-",
+        "\u2011": "-",
+        "\u2012": "-",
+        "\u2013": "-",
+        "\u2014": "-",
+        "\u2015": "-",
+        "\u2212": "-",
+        "\u2044": "/",
+        "\u2215": "/",
+        "\u2236": ":",
+        "\ua789": ":",
+        "\u2018": "'",
+        "\u2019": "'",
+        "\u201c": '"',
+        "\u201d": '"',
+    }
+)
+_UNICODE_OBFUSCATION_TRIGGER_RE = re.compile(
+    r"[\u00ad\u034f\u061c\u180e\u200b-\u200f\u202a-\u202e\u2060-\u206f\ufeff"
+    r"\uff01-\uff5e\u3000\u2010-\u2015\u2212\u2044\u2215\u2236\ua789\u2018\u2019\u201c\u201d]"
+)
+_ENCODED_OBFUSCATION_TRIGGER_RE = re.compile(
+    r"\\(?:u[0-9A-Fa-f]{4}|U[0-9A-Fa-f]{8}|x[0-9A-Fa-f]{2})"
+    r"|&#(?:x[0-9A-Fa-f]{1,8}|[0-9]{1,10});"
+    r"|(?:%[0-9A-Fa-f]{2})+"
+)
+
+
+@dataclass(frozen=True)
+class SensitiveScanView:
+    """Normalized scan text with an exact mapping back to the request text."""
+
+    text: str
+    starts: Tuple[int, ...]
+    ends: Tuple[int, ...]
+
+    def original_span(self, start: int, end: int) -> Tuple[int, int] | None:
+        if start < 0 or end <= start or end > len(self.starts):
+            return None
+        return self.starts[start], self.ends[end - 1]
+
+
+def _fold_obfuscated_chunk(value: str) -> str:
+    folded: List[str] = []
+    for char in str(value or ""):
+        if char in _INVISIBLE_FORMAT_CHARS or unicodedata.category(char) == "Cf":
+            continue
+        normalized = unicodedata.normalize("NFKC", char).translate(_PUNCTUATION_FOLD)
+        folded.extend(item for item in normalized if unicodedata.category(item) != "Cf")
+    return "".join(folded)
+
+
+def _decode_obfuscated_sequence(text: str, start: int) -> Tuple[str, int] | None:
+    raw = str(text or "")
+    if raw.startswith("\\u", start) and start + 6 <= len(raw):
+        token = raw[start + 2:start + 6]
+        if re.fullmatch(r"[0-9A-Fa-f]{4}", token):
+            return chr(int(token, 16)), start + 6
+    if raw.startswith("\\U", start) and start + 10 <= len(raw):
+        token = raw[start + 2:start + 10]
+        if re.fullmatch(r"[0-9A-Fa-f]{8}", token):
+            codepoint = int(token, 16)
+            if codepoint <= 0x10FFFF:
+                return chr(codepoint), start + 10
+    if raw.startswith("\\x", start) and start + 4 <= len(raw):
+        token = raw[start + 2:start + 4]
+        if re.fullmatch(r"[0-9A-Fa-f]{2}", token):
+            return chr(int(token, 16)), start + 4
+    if raw.startswith("&#", start):
+        match = re.match(r"&#(?:x([0-9A-Fa-f]{1,8})|([0-9]{1,10}));", raw[start:])
+        if match is not None:
+            codepoint = int(match.group(1), 16) if match.group(1) else int(match.group(2), 10)
+            if codepoint <= 0x10FFFF:
+                return chr(codepoint), start + len(match.group(0))
+    if raw.startswith("%", start):
+        end = start
+        encoded = bytearray()
+        while end + 3 <= len(raw) and re.fullmatch(r"%[0-9A-Fa-f]{2}", raw[end:end + 3]):
+            encoded.append(int(raw[end + 1:end + 3], 16))
+            end += 3
+        if encoded:
+            try:
+                return bytes(encoded).decode("utf-8"), end
+            except UnicodeDecodeError:
+                if all(item < 128 for item in encoded):
+                    return bytes(encoded).decode("ascii"), end
+    return None
+
+
+def build_sensitive_scan_view(text: str) -> SensitiveScanView | None:
+    """Build a bounded de-obfuscated view only when a cheap trigger matches.
+
+    The original request is never mutated. Each normalized character retains
+    its source span so API results and log redaction still cover the exact raw
+    text supplied by the caller.
+    """
+
+    raw = str(text or "")
+    if not raw:
+        return None
+    unicode_triggered = _UNICODE_OBFUSCATION_TRIGGER_RE.search(raw) is not None
+    encoded_possible = "%" in raw or "\\" in raw or "&#" in raw
+    if not unicode_triggered and (
+        not encoded_possible or _ENCODED_OBFUSCATION_TRIGGER_RE.search(raw) is None
+    ):
+        return None
+
+    chars: List[str] = []
+    starts: List[int] = []
+    ends: List[int] = []
+    index = 0
+    while index < len(raw):
+        decoded = _decode_obfuscated_sequence(raw, index)
+        if decoded is None:
+            chunk = raw[index]
+            source_end = index + 1
+        else:
+            chunk, source_end = decoded
+        folded = _fold_obfuscated_chunk(chunk)
+        for char in folded:
+            chars.append(char)
+            starts.append(index)
+            ends.append(source_end)
+        index = source_end
+
+    normalized = "".join(chars)
+    if normalized == raw:
+        return None
+    return SensitiveScanView(normalized, tuple(starts), tuple(ends))
+
+
+def phase1_sensitive_syntax_possible(text: str, lowered_text: str | None = None) -> bool:
+    """Cheap common gate for phase-1 secret syntaxes.
+
+    Every phase-1 rule requires an assignment/header delimiter or a PEM armor
+    header. Keeping this check outside individual rule sets avoids dozens of
+    full-text substring scans for ordinary prose.
+    """
+
+    raw = str(text or "")
+    if "=" in raw or ":" in raw or "#" in raw or "-----BEGIN" in raw:
+        return True
+    lowered = lowered_text if lowered_text is not None else raw.lower()
+    if not any(hint in lowered for hint in _PHASE1_STRONG_LABEL_ROOT_HINTS):
+        return False
+    return any(hint in lowered for hint in _PHASE1_STRONG_LABEL_HINTS)
+
+
+_PLACEHOLDER_VALUES = {
+    "changeme",
+    "change_me",
+    "change-me",
+    "example",
+    "sample",
+    "dummy",
+    "placeholder",
+    "redacted",
+    "secret",
+    "password",
+    "your-secret-here",
+}
+
+
+def _is_placeholder(value: str) -> bool:
+    normalized = str(value or "").strip().strip("<>{}[]()\"'").lower()
+    if not normalized:
+        return True
+    if normalized in _PLACEHOLDER_VALUES:
+        return True
+    return normalized.startswith("${") or normalized.startswith("{{")
 
 
 def _compile_flags(flags_cfg: Dict[str, Any] | None) -> int:
@@ -106,6 +360,140 @@ def _url_is_internal(value: str) -> bool:
     return bool(parsed.scheme and parsed.hostname and _host_is_internal(parsed.hostname))
 
 
+_PEM_PRIVATE_RE = re.compile(
+    r"\A-----BEGIN (?P<label>(?:RSA |EC |DSA |OPENSSH |ENCRYPTED )?PRIVATE KEY)-----\r?\n"
+    r"(?P<body>[A-Za-z0-9+/=\r\n]{40,32768})\r?\n"
+    r"-----END (?P=label)-----\Z"
+)
+
+
+def _pem_private_key_valid(value: str) -> bool:
+    raw = str(value or "").strip().replace("\\r\\n", "\n").replace("\\n", "\n")
+    if raw.startswith("-----BEGIN PGP PRIVATE KEY BLOCK-----"):
+        return raw.endswith("-----END PGP PRIVATE KEY BLOCK-----") and len(raw) >= 128
+    match = _PEM_PRIVATE_RE.fullmatch(raw)
+    if match is None:
+        return False
+    body = "".join(match.group("body").split())
+    try:
+        decoded = base64.b64decode(body, validate=True)
+    except (binascii.Error, ValueError):
+        return False
+    return len(decoded) >= 32
+
+
+def _credential_connection_string_valid(value: str) -> bool:
+    raw = str(value or "").strip().strip("\"'")
+    if not raw or _is_placeholder(raw):
+        return False
+
+    parsed_raw = raw[5:] if raw.lower().startswith("jdbc:") else raw
+    try:
+        parsed = urlsplit(parsed_raw)
+    except ValueError:
+        parsed = None
+    if parsed is not None and parsed.scheme:
+        if parsed.password and not _is_placeholder(parsed.password):
+            if parsed.username or parsed.scheme.lower() in ("redis", "rediss"):
+                return True
+        query = {key.lower(): vals for key, vals in parse_qs(parsed.query, keep_blank_values=True).items()}
+        users = query.get("user") or query.get("username") or query.get("uid")
+        passwords = query.get("password") or query.get("passwd") or query.get("pwd")
+        if users and passwords and any(value and not _is_placeholder(value) for value in passwords):
+            return True
+
+    parts: Dict[str, str] = {}
+    for token in raw.split(";"):
+        if "=" not in token:
+            continue
+        key, item = token.split("=", 1)
+        parts[key.strip().lower().replace(" ", "")] = item.strip()
+    password = parts.get("password") or parts.get("passwd") or parts.get("pwd")
+    username = parts.get("userid") or parts.get("user") or parts.get("username") or parts.get("uid")
+    account_key = parts.get("accountkey") or parts.get("sharedaccesssignature")
+    if account_key and not _is_placeholder(account_key):
+        return True
+    return bool(username and password and not _is_placeholder(password))
+
+
+def _signed_url_valid(value: str) -> bool:
+    raw = str(value or "").strip().strip("\"'")
+    try:
+        parsed = urlsplit(raw)
+    except ValueError:
+        return False
+    if parsed.scheme not in ("http", "https") or not parsed.hostname:
+        return False
+    host = parsed.hostname.lower()
+    path = parsed.path or ""
+    query = {key.lower(): vals for key, vals in parse_qs(parsed.query, keep_blank_values=True).items()}
+    if "x-amz-signature" in query and "x-amz-credential" in query:
+        return True
+    if "x-goog-signature" in query and "x-goog-credential" in query:
+        return True
+    if host.endswith((".blob.core.windows.net", ".file.core.windows.net", ".dfs.core.windows.net")):
+        return "sig" in query and "se" in query and ("sp" in query or "sv" in query)
+    if host == "hooks.slack.com":
+        return bool(re.fullmatch(r"/services/[A-Za-z0-9_-]{6,}/[A-Za-z0-9_-]{6,}/[A-Za-z0-9_-]{16,}", path))
+    if host in ("discord.com", "discordapp.com"):
+        return bool(re.fullmatch(r"/api(?:/v\d+)?/webhooks/\d{6,}/[A-Za-z0-9._-]{16,}", path))
+    return False
+
+
+def _base32_secret_valid(value: str) -> bool:
+    raw = str(value or "").strip().replace(" ", "").replace("-", "").upper().rstrip("=")
+    if not (16 <= len(raw) <= 128) or _is_placeholder(raw):
+        return False
+    return bool(re.fullmatch(r"[A-Z2-7]+", raw)) and len(set(raw)) >= 6
+
+
+def _recovery_code_valid(value: str) -> bool:
+    raw = str(value or "").strip()
+    compact = re.sub(r"[-\s]", "", raw)
+    if not (8 <= len(compact) <= 32) or _is_placeholder(compact):
+        return False
+    return bool(re.fullmatch(r"[A-Za-z0-9]+", compact)) and len(set(compact.lower())) >= 5
+
+
+def _secret_value_valid(value: str) -> bool:
+    raw = str(value or "").strip()
+    return bool(raw) and not _is_placeholder(raw)
+
+
+def _unquoted_password_valid(value: str) -> bool:
+    """Reject policy vocabulary captured after a Korean password label."""
+
+    raw = str(value or "").strip()
+    if not _secret_value_valid(raw):
+        return False
+    folded = raw.casefold()
+    if folded in {
+        "policy",
+        "rule",
+        "rules",
+        "대문자",
+        "소문자",
+        "영문",
+        "숫자",
+        "특수문자",
+        "문자",
+        "정책",
+        "규칙",
+        "최소",
+        "이상",
+    }:
+        return False
+    if re.fullmatch(r"\d{1,3}자", raw):
+        return False
+    return True
+
+
+def _fragmented_otp_valid(value: str) -> bool:
+    raw = str(value or "").strip()
+    compact = re.sub(r"[\s&/.'`|_-]", "", raw)
+    return compact.isdigit() and 4 <= len(compact) <= 8 and compact != raw
+
+
 def _character_class_count(value: str) -> int:
     raw = str(value or "")
     return sum(
@@ -126,6 +514,12 @@ class SensitivePatternSet:
         self.enabled = bool(rule_doc.get("enabled", True))
         self.max_match_len = max(1, int(rule_doc.get("max_match_len") or 4096))
         self.patterns: List[Tuple[Pattern[str], Dict[str, Any], Tuple[str, ...]]] = []
+        raw_prefilter_any = rule_doc.get("prefilter_any") or []
+        if isinstance(raw_prefilter_any, str):
+            raw_prefilter_any = [raw_prefilter_any]
+        if not isinstance(raw_prefilter_any, (list, tuple)):
+            raise ValueError(f"{self.out_key}.prefilter_any must be a list")
+        self.prefilter_any = tuple(str(item).lower() for item in raw_prefilter_any if str(item))
 
         patterns = rule_doc.get("patterns") or []
         if not isinstance(patterns, list):
@@ -183,14 +577,34 @@ class SensitivePatternSet:
             return _host_is_internal(value)
         if validator == "internal_url":
             return _url_is_internal(value)
+        if validator == "pem_private_key":
+            return _pem_private_key_valid(value)
+        if validator == "credential_connection_string":
+            return _credential_connection_string_valid(value)
+        if validator == "signed_url":
+            return _signed_url_valid(value)
+        if validator == "base32_secret":
+            return _base32_secret_valid(value)
+        if validator == "recovery_code":
+            return _recovery_code_valid(value)
+        if validator == "secret_value":
+            return _secret_value_valid(value)
+        if validator == "unquoted_password":
+            return _unquoted_password_valid(value)
+        if validator == "fragmented_otp":
+            return _fragmented_otp_valid(value)
         return True
 
-    def find(self, text: str, max_results: int = 500) -> List[dict]:
+    def _find_in_text(self, text: str, max_results: int, lowered_text: str | None = None) -> List[dict]:
         if not self.enabled or not text or max_results <= 0:
             return []
 
         found: List[dict] = []
-        lowered_text: str | None = None
+        if self.prefilter_any:
+            if lowered_text is None:
+                lowered_text = text.lower()
+            if not any(hint in lowered_text for hint in self.prefilter_any):
+                return []
         for regex, spec, prefilter_any in self.patterns:
             if prefilter_any:
                 if lowered_text is None:
@@ -223,6 +637,39 @@ class SensitivePatternSet:
                     break
             if len(found) >= max_results:
                 break
+
+        return found
+
+    def find(
+        self,
+        text: str,
+        max_results: int = 500,
+        lowered_text: str | None = None,
+        scan_view: SensitiveScanView | None = None,
+    ) -> List[dict]:
+        if not self.enabled or not text or max_results <= 0:
+            return []
+
+        found = self._find_in_text(text, max_results=max_results, lowered_text=lowered_text)
+        if scan_view is not None and scan_view.text:
+            normalized_items = self._find_in_text(
+                scan_view.text,
+                max_results=max_results,
+                lowered_text=scan_view.text.lower(),
+            )
+            for item in normalized_items:
+                span = scan_view.original_span(int(item["start"]), int(item["end"]))
+                if span is None:
+                    continue
+                start, end = span
+                found.append(
+                    {
+                        "start": start,
+                        "end": end,
+                        "matchString": text[start:end],
+                        "detected_by": f'{item["detected_by"]}:normalized',
+                    }
+                )
 
         # Prefer a wider match when two rules capture overlapping values.
         selected: List[dict] = []
@@ -275,8 +722,20 @@ def redact_sensitive_text(
         return raw
     directory = Path(rules_dir or os.getenv("PII_RULES_DIR", "app/rules"))
     spans: List[Tuple[int, int, str]] = []
+    lowered = raw.lower()
+    scan_view = build_sensitive_scan_view(raw)
+    phase1_possible = phase1_sensitive_syntax_possible(raw, lowered) or bool(
+        scan_view is not None and phase1_sensitive_syntax_possible(scan_view.text, scan_view.text.lower())
+    )
     for pattern_set in _load_redaction_pattern_sets(directory):
-        for item in pattern_set.find(raw, max_results=max_results_per_type):
+        if pattern_set.out_key in PHASE1_SENSITIVE_TYPES and not phase1_possible:
+            continue
+        for item in pattern_set.find(
+            raw,
+            max_results=max_results_per_type,
+            lowered_text=lowered,
+            scan_view=scan_view,
+        ):
             spans.append((int(item["start"]), int(item["end"]), pattern_set.out_key))
     if not spans:
         return raw

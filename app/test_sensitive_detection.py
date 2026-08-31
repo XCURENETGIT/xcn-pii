@@ -21,6 +21,13 @@ def sensitive_engine() -> PiiEngine:
         "AUTH_TOKEN",
         "PASSWORD",
         "INTERNAL_ACCESS",
+        "PRIVATE_KEY",
+        "CLOUD_CREDENTIAL",
+        "CONNECTION_STRING",
+        "SIGNED_URL",
+        "MFA_SECRET",
+        "RECOVERY_CODE",
+        "SESSION_COOKIE",
     ]
     return PiiEngine(bundle, pipeline)
 
@@ -32,6 +39,18 @@ def sensitive_engine() -> PiiEngine:
         ("OTP", "Your verification code is 847201", "847201", "otp_context_before"),
         ("API_KEY", "AWS key AKIAIOSFODNN7EXAMPLE", "AKIAIOSFODNN7EXAMPLE", "aws_access_key_id"),
         ("API_KEY", "API_KEY=abcDEF1234567890xyz", "abcDEF1234567890xyz", "generic_api_key"),
+        (
+            "API_KEY",
+            "API_KEY abcDEF1234567890xyz",
+            "abcDEF1234567890xyz",
+            "generic_api_key",
+        ),
+        (
+            "API_KEY",
+            "API_KEY\nabcDEF1234567890xyz",
+            "abcDEF1234567890xyz",
+            "generic_api_key",
+        ),
         (
             "AUTH_TOKEN",
             "Authorization: Bearer abcDEF1234567890.xyz",
@@ -83,11 +102,17 @@ def test_sensitive_types_detect_only_value(
         "endpoint: https://example.com/api",
         "공개 DNS는 2001:4860:4860::8888 입니다",
         "API_KEY=AAAAAAAAAAAAAAAAAAAA",
+        "API_KEY AAAAAAAAAAAAAAAAAAAA",
+        "service key abcDEF1234567890xyz",
     ],
 )
 def test_sensitive_types_reject_unlabeled_or_public_values(sensitive_engine: PiiEngine, text: str) -> None:
     found = sensitive_engine.detect(text, max_results_per_type=20)
-    for key in ("OTP", "API_KEY", "AUTH_TOKEN", "PASSWORD", "INTERNAL_ACCESS"):
+    for key in (
+        "OTP", "API_KEY", "AUTH_TOKEN", "PASSWORD", "INTERNAL_ACCESS",
+        "PRIVATE_KEY", "CLOUD_CREDENTIAL", "CONNECTION_STRING", "SIGNED_URL",
+        "MFA_SECRET", "RECOVERY_CODE", "SESSION_COOKIE",
+    ):
         assert found.get(key, []) == []
 
 

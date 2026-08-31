@@ -31,6 +31,10 @@ def _step_name(step: Detector) -> str:
         return "mn.postfilter"
     if isinstance(step, BNPostFilter):
         return "bn.postfilter"
+    if isinstance(step, NumericAlternateSeparatorDetector):
+        return "numeric_alternate_separator"
+    if isinstance(step, EvasionRecoveryDetector):
+        return "evasion_recovery"
     if isinstance(step, ContextualLLMPostFilter):
         return "context.embed"
     if isinstance(step, ContextualPostFilter):

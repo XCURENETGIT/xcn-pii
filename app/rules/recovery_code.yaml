@@ -1,0 +1,19 @@
+# MFA/account recovery codes require an explicit recovery/backup-code label.
+enabled: true
+max_match_len: 64
+prefilter_any: [recovery, backup, 복구, 백업]
+patterns:
+  - name: labeled_recovery_code
+    detected_by: labeled_recovery_code
+    prefilter_any: [recovery_code, recovery code, backup_code, backup code, 복구코드, 복구 코드, 백업코드, 백업 코드]
+    regex: '(?<![A-Za-z0-9])["''`*_~]{0,3}(?:(?:recovery|backup)[\s_.-]*code|(?:복구|백업)\s*코드)["''`*_~]{0,3}(?![A-Za-z0-9])\s*(?:[:=#|]|=>|->)\s*["''`*_~]{0,3}(?P<value>[A-Za-z0-9]{4,16}(?:[ -][A-Za-z0-9]{4,16}){0,3})["''`*_~]{0,3}'
+    flags:
+      ignorecase: true
+    validator: recovery_code
+  - name: labeled_recovery_code_space
+    detected_by: labeled_recovery_code_space
+    prefilter_any: [recovery_code, recovery code, backup_code, backup code, 복구코드, 복구 코드, 백업코드, 백업 코드]
+    regex: '(?<![A-Za-z0-9])["''`*_~]{0,3}(?:(?:recovery|backup)[\s_.-]*code|(?:복구|백업)\s*코드)["''`*_~]{0,3}(?![A-Za-z0-9])[ \t\r\n]{1,8}["''`*_~]{0,3}(?P<value>(?=[A-Za-z0-9 -]{8,64}(?![A-Za-z0-9 -]))(?=[A-Za-z0-9 -]*\d)[A-Za-z0-9]{4,16}(?:[ -][A-Za-z0-9]{4,16}){0,3})["''`*_~]{0,3}'
+    flags:
+      ignorecase: true
+    validator: recovery_code

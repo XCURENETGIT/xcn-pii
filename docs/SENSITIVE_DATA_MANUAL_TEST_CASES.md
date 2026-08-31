@@ -4,6 +4,8 @@
 
 이 문서는 `feature/secret-detection` 브랜치에서 추가한 다음 5개 타입을 사용자가 직접 시험할 수 있도록 현재 구현된 모든 **패턴군, 공급자 형식, 문맥 별칭, 내부 URL scheme, 정상·비탐지 경계**를 정리한 문서다.
 
+Unicode·escape encoding·Markdown·구분자 제거와 같은 우회 방어 범위와 잔여 한계는 `docs/SENSITIVE_EVASION_HARDENING.md`를 함께 참조한다.
+
 | 타입 | 의미 | HTTP 결과 필드 | gRPC 결과 필드 |
 | --- | --- | --- | --- |
 | `OTP` | OTP·인증·확인 코드 | `OTP_CNT`, `OTP` | `otp_cnt`, `otp` |
@@ -14,7 +16,7 @@
 
 여기서 “모든 케이스”는 만들 수 있는 모든 실제 문자열의 무한한 조합이 아니라, 현재 규칙이 지원하는 모든 형식과 분기 조건을 뜻한다. 문서의 키와 비밀번호는 전부 테스트용 가짜 값이다. 실제 운영 기밀을 테스트 요청에 넣지 않는다.
 
-이 문서에 수록된 `AK01`~`AK25`, `IA01`~`IA36`, `OT01`~`OT05`, `GK01`~`GK04`, `AT01`~`AT06`, `PW01`~`PW06`, `NG01`~`NG13`은 `app/test_sensitive_manual_examples.py`에서 자동 검증한다.
+이 문서에 수록된 `AK01`~`AK25`, `IA01`~`IA36`, `OT01`~`OT05`, `GK01`~`GK05`, `AT01`~`AT06`, `PW01`~`PW06`, `NG01`~`NG13`은 `app/test_sensitive_manual_examples.py`에서 자동 검증한다.
 
 ## 2. 바로 실행하는 방법
 
@@ -157,6 +159,7 @@ Authorization: Bearer AbCdEf0123456789-token.value
 | 한국어 key | `API`, `애플리케이션`, `응용 프로그램`, `앱`, `접근`, `액세스`, `비밀`, `서비스`, `구독`, `소비자`, `서명` + `키` 또는 `Key` |
 | 한국어 secret | `클라이언트`, `앱`, `웹훅`, `서명` + `시크릿` 또는 `비밀` |
 | 할당 방식 | JSON/YAML/env의 따옴표 키, 조사 `은/는/이/가`, `is`, `equals`, `value is`, `:`, `=`, `=>` |
+| 강한 라벨 + bounded separator | `API_KEY`, `API Key`, `x-api-key`, `Ocp-Apim-Subscription-Key`, `API 키` 뒤 최대 8자의 공백·개행 또는 `|`, `->`, `=>`로 값 표기 |
 | 값 우선 영문 | `<값> is/equals the/your <service key 등>` |
 
 | ID | 입력 | 예상 값 | `detected_by` |
@@ -165,6 +168,9 @@ Authorization: Bearer AbCdEf0123456789-token.value
 | GK02 | `Ocp-Apim-Subscription-Key: Az9xY8wV7uT6sR5qP4nM3kL2` | `Az9xY8wV7uT6sR5qP4nM3kL2` | `generic_api_key` |
 | GK03 | `웹훅 시크릿: whsec_Z9y8X7w6V5u4T3s2R1q0` | `whsec_Z9y8X7w6V5u4T3s2R1q0` | `generic_api_key` |
 | GK04 | `SvcK3y-2026-AbCdEfGh is the service key` | `SvcK3y-2026-AbCdEfGh` | `generic_api_key_context_after` |
+| GK05 | `API_KEY abcDEF1234567890xyz` | `abcDEF1234567890xyz` | `generic_api_key` |
+
+공백·개행-only 구분은 과탐을 제한하기 위해 위의 강한 API Key 라벨에만 적용한다. Markdown wrapper는 최대 3자, separator는 최대 8자로 제한한다. `service key <값>` 같은 약한 라벨에는 적용하지 않으며 값에는 기존과 동일하게 길이, entropy, 문자 종류 조건을 적용한다.
 
 ## 5. AUTH_TOKEN 전체 지원 범위
 

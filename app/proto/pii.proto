@@ -130,6 +130,27 @@ message PiiData {
 
   int32 internal_access_cnt = 77;
   repeated MatchItem internal_access = 78;
+
+  int32 private_key_cnt = 79;
+  repeated MatchItem private_key = 80;
+
+  int32 cloud_credential_cnt = 81;
+  repeated MatchItem cloud_credential = 82;
+
+  int32 connection_string_cnt = 83;
+  repeated MatchItem connection_string = 84;
+
+  int32 signed_url_cnt = 85;
+  repeated MatchItem signed_url = 86;
+
+  int32 mfa_secret_cnt = 87;
+  repeated MatchItem mfa_secret = 88;
+
+  int32 recovery_code_cnt = 89;
+  repeated MatchItem recovery_code = 90;
+
+  int32 session_cookie_cnt = 91;
+  repeated MatchItem session_cookie = 92;
 }
 
 message PiiMeta {

@@ -146,6 +146,13 @@ def _build_data(pb2: Any, found: dict) -> Any:
         "AUTH_TOKEN": ("auth_token_cnt", "auth_token"),
         "PASSWORD": ("password_cnt", "password"),
         "INTERNAL_ACCESS": ("internal_access_cnt", "internal_access"),
+        "PRIVATE_KEY": ("private_key_cnt", "private_key"),
+        "CLOUD_CREDENTIAL": ("cloud_credential_cnt", "cloud_credential"),
+        "CONNECTION_STRING": ("connection_string_cnt", "connection_string"),
+        "SIGNED_URL": ("signed_url_cnt", "signed_url"),
+        "MFA_SECRET": ("mfa_secret_cnt", "mfa_secret"),
+        "RECOVERY_CODE": ("recovery_code_cnt", "recovery_code"),
+        "SESSION_COOKIE": ("session_cookie_cnt", "session_cookie"),
     }
     kwargs: dict[str, Any] = {}
     for key, (cnt_field, items_field) in field_map.items():
@@ -162,6 +169,7 @@ def _format_count_summary(found: dict) -> str:
         "SN", "FN", "SSN", "DN", "PN", "MN", "BRN", "BN", "AN", "CN", "CPN", "CRN", "IMEI", "MCN", "EML",
         "VN_CCCD", "VN_MN", "VN_PN", "VN_TIN", "VN_SI",
         "OTP", "API_KEY", "AUTH_TOKEN", "PASSWORD", "INTERNAL_ACCESS",
+        "PRIVATE_KEY", "CLOUD_CREDENTIAL", "CONNECTION_STRING", "SIGNED_URL", "MFA_SECRET", "RECOVERY_CODE", "SESSION_COOKIE",
     )
     return " ".join(f"{key}={len(found.get(key, []) or [])}" for key in keys)
 

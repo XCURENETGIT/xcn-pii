@@ -1,7 +1,7 @@
 # One-time password / verification code. A numeric value is accepted only when
 # an explicit OTP or verification-code label is nearby.
 enabled: true
-max_match_len: 8
+max_match_len: 31
 patterns:
   - name: otp_label_before_value
     detected_by: otp_context_before
@@ -42,3 +42,19 @@ patterns:
       verbose: true
     min_length: 4
     max_length: 8
+  - name: otp_fragmented_digits
+    detected_by: otp_fragmented_digits
+    prefilter_any: [otp, totp, hotp, mfa, 2fa, verification, authentication, security, confirmation, 인증, 확인, 보안, 본인, 로그인, 일회용]
+    regex: >-
+      (?:
+        \b(?:otp|totp|hotp|mfa|2fa)[\s_.-]*(?:code|number|pin|password|passcode)?\b
+        |\b(?:verification|authentication|security|confirmation|login)[\s_.-]*(?:code|number|pin|passcode)\b
+        |(?:OTP|TOTP|HOTP|MFA|2FA)\s*(?:번호|코드|PIN|비밀번호)?
+        |(?:인증|확인|보안|본인\s*확인|로그인|일회용)\s*(?:번호|코드|PIN|비밀번호)?
+      )
+      ["'`*_~]{0,3}\s*(?:(?:은|는|이|가|is|equals?|[:=|]|=>|->)\s*)*
+      ["'`*_~]{0,3}(?P<value>\d(?:[\s&/.'`|_-]{1,3}\d){3,7})["'`*_~]{0,3}
+    flags:
+      ignorecase: true
+      verbose: true
+    validator: fragmented_otp
